@@ -104,6 +104,7 @@
       "generator": "Unix Makefiles",
       "hidden": true,
       "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_CATCH_DISCOVER_TESTS_DISCOVERY_MODE": "PRE_TEST"
       }
     },
