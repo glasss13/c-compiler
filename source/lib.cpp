@@ -2,4 +2,8 @@
 
 #include <fmt/core.h>
 
-library::library() : name{fmt::format("{}", "c-compiler")} {}
+library::library()
+    : name{fmt::format("{}",
+                       "c-"
+                       "compile"
+                       "r")} {}
