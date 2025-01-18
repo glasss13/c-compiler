@@ -18,6 +18,7 @@ include(cmake/variables.cmake)
 add_library(
     c-compiler_lib OBJECT
     source/lib.cpp
+    source/lexer.cpp
 )
 
 target_include_directories(
@@ -26,7 +27,7 @@ target_include_directories(
     "\$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/source>"
 )
 
-target_compile_features(c-compiler_lib PUBLIC cxx_std_20)
+target_compile_features(c-compiler_lib PUBLIC cxx_std_23)
 
 find_package(fmt REQUIRED)
 target_link_libraries(c-compiler_lib PRIVATE fmt::fmt)
@@ -38,7 +39,7 @@ add_executable(c-compiler::exe ALIAS c-compiler_exe)
 
 set_property(TARGET c-compiler_exe PROPERTY OUTPUT_NAME c-compiler)
 
-target_compile_features(c-compiler_exe PRIVATE cxx_std_20)
+target_compile_features(c-compiler_exe PRIVATE cxx_std_23)
 
 target_link_libraries(c-compiler_exe PRIVATE c-compiler_lib)
 

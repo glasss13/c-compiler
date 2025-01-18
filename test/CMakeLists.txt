@@ -17,7 +17,7 @@ target_link_libraries(
     c-compiler_lib
     Catch2::Catch2WithMain
 )
-target_compile_features(c-compiler_test PRIVATE cxx_std_20)
+target_compile_features(c-compiler_test PRIVATE cxx_std_23)
 
 catch_discover_tests(c-compiler_test)
 
