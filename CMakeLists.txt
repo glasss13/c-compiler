@@ -19,6 +19,7 @@ add_library(
     c-compiler_lib OBJECT
     source/lib.cpp
     source/lexer.cpp
+    source/parser.cpp
 )
 
 target_include_directories(
