@@ -11,5 +11,7 @@ namespace codegen {
 [[nodiscard]] std::string codegen_statement(const parser::Statement& statement);
 [[nodiscard]] std::string codegen_expression(
     const parser::Expression& expression);
+[[nodiscard]] std::string codegen_unary_op(
+    const parser::UnaryOpExpression& unary_op);
 
 }  // namespace codegen

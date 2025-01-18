@@ -13,8 +13,12 @@
 namespace parser {
 
 enum class StatmentType { Return };
-
-enum class ExpressionType { Constant };
+enum class ExpressionType { Constant, UnaryOp };
+enum class UnaryOpType {
+    LogicalNot,
+    BitwiseNot,
+    Negate,
+};
 
 struct AstNode {
     AstNode() = default;
@@ -27,14 +31,39 @@ struct AstNode {
     constexpr virtual std::string to_string() const = 0;
 };
 struct Statement : public AstNode {
-    StatmentType m_type;
+    StatmentType m_statement_type;
 
-    explicit Statement(StatmentType type) : m_type(type) {}
+    explicit Statement(StatmentType type) : m_statement_type(type) {}
 };
 struct Expression : public AstNode {
-    ExpressionType m_type;
+    ExpressionType m_expression_type;
 
-    explicit Expression(ExpressionType type) : m_type(type) {}
+    explicit Expression(ExpressionType type) : m_expression_type(type) {}
+};
+
+struct UnaryOpExpression : public Expression {
+    std::unique_ptr<Expression> m_expression;
+    UnaryOpType m_op_type;
+
+    explicit UnaryOpExpression(std::unique_ptr<Expression> expression,
+                               UnaryOpType op_type)
+        : Expression(ExpressionType::UnaryOp),
+          m_expression(std::move(expression)),
+          m_op_type(op_type) {}
+
+    [[nodiscard]] constexpr std::string to_string() const override {
+        switch (m_op_type) {
+            case UnaryOpType::LogicalNot:
+                return fmt::format("!{}", m_expression->to_string());
+                break;
+            case UnaryOpType::BitwiseNot:
+                return fmt::format("~{}", m_expression->to_string());
+                break;
+            case UnaryOpType::Negate:
+                return fmt::format("-{}", m_expression->to_string());
+                break;
+        }
+    }
 };
 
 struct ConstantExpression : public Expression {

@@ -9,7 +9,8 @@
 #include "parser.hpp"
 
 int main() {
-    std::ifstream src("return_2.c");
+    // std::ifstream src("return_2.c");
+    std::ifstream src("bitwise_zero.c");
 
     auto tokens = lexer::lex_stream(src);
 

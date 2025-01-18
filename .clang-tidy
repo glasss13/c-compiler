@@ -12,6 +12,7 @@ Checks: "*,\
   -llvmlibc-*,\
   -modernize-use-nodiscard,\
   -misc-non-private-member-variables-in-classes,\
+  -misc-no-recursion,\
   -modernize-use-trailing-return-type,\
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,\
   -readability-identifier-length"

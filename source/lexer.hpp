@@ -1,7 +1,5 @@
 #pragma once
 
-#include <__algorithm/ranges_all_of.h>
-
 #include <ranges>
 #include <sstream>
 #include <string>
@@ -18,6 +16,9 @@ enum class TokenType {
     return_keyword,
     identifier,
     int_literal,
+    negation,
+    bitwise_not,
+    logical_not,
 };
 
 struct Token {

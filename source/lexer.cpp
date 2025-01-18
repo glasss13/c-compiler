@@ -1,5 +1,7 @@
 #include "lexer.hpp"
 
+#include <algorithm>
+
 namespace {
 bool is_identifier_char(char c) {
     return static_cast<bool>(std::isalnum(c)) || c == '_';
@@ -43,6 +45,15 @@ namespace lexer {
             cur_token.clear();
         } else if (cur_token == "return"sv) {
             out.emplace_back(TokenType::return_keyword, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "-"sv) {
+            out.emplace_back(TokenType::negation, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "~"sv) {
+            out.emplace_back(TokenType::bitwise_not, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "!"sv) {
+            out.emplace_back(TokenType::logical_not, std::move(cur_token));
             cur_token.clear();
         } else if (std::isdigit(istream.peek()) == 0 &&
                    ranges::all_of(cur_token,

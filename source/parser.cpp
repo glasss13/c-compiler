@@ -1,5 +1,6 @@
 #include "parser.hpp"
 
+#include <__expected/unexpected.h>
 #include <fmt/core.h>
 
 #include "lexer.hpp"
@@ -8,19 +9,42 @@ namespace parser {
 
 std::expected<std::unique_ptr<Expression>, std::string> parse_expression(
     std::vector<lexer::Token>::iterator& tokens) {
+    using lexer::TokenType;
     auto token = *tokens;
-    if (token.m_token_type != lexer::TokenType::int_literal) {
-        return std::unexpected(
-            "Failed to parse expression: malformed int literal");
-    }
-
-    int constant{};
-    std::from_chars(token.m_data.data(),
-                    token.m_data.data() + token.m_data.size(), constant);
-
     ++tokens;
 
-    return std::make_unique<ConstantExpression>(constant);
+    switch (token.m_token_type) {
+        case TokenType::int_literal: {
+            int constant{};
+            std::from_chars(token.m_data.data(),
+                            token.m_data.data() + token.m_data.size(),
+                            constant);
+
+            return std::make_unique<ConstantExpression>(constant);
+        }
+        case TokenType::bitwise_not:
+        case TokenType::logical_not:
+        case TokenType::negation: {
+            auto child_expr = parse_expression(tokens);
+            if (!child_expr) {
+                return std::unexpected(child_expr.error());
+            }
+
+            const auto type = token.m_token_type == TokenType::bitwise_not
+                                  ? UnaryOpType::BitwiseNot
+                              : token.m_token_type == TokenType::logical_not
+                                  ? UnaryOpType::LogicalNot
+                                  : UnaryOpType::Negate;
+
+            return std::make_unique<UnaryOpExpression>(
+                std::move(child_expr.value()), type);
+        }
+        default:
+            return std::unexpected(fmt::format(
+                "Failed to parse expression: expected integer literal or "
+                "unary operator, received: {}",
+                token.m_data));
+    }
 }
 
 std::expected<std::unique_ptr<Statement>, std::string> parse_statement(
