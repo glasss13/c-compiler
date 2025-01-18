@@ -1,13 +1,5 @@
 #include "lexer.hpp"
 
-#include <__algorithm/ranges_all_of.h>
-
-#include <cctype>
-#include <charconv>
-#include <iostream>
-#include <istream>
-#include <ranges>
-
 namespace {
 bool is_identifier_char(char c) {
     return static_cast<bool>(std::isalnum(c)) || c == '_';
@@ -15,11 +7,10 @@ bool is_identifier_char(char c) {
 }  // namespace
 
 namespace lexer {
-namespace ranges = std::ranges;
 
-[[nodiscard]] std::expected<std::vector<Token>, std::string> parse_token_stream(
-    std::istream& istream) {
+[[nodiscard]] std::vector<Token> lex_stream(std::istream& istream) {
     using namespace std::literals;
+    namespace ranges = std::ranges;
 
     std::vector<Token> out;
 

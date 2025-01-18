@@ -1,12 +1,13 @@
 #pragma once
 
-#include <expected>
+#include <__algorithm/ranges_all_of.h>
+
+#include <ranges>
 #include <sstream>
 #include <string>
 #include <vector>
 
 namespace lexer {
-
 enum class TokenType {
     open_brace,
     close_brace,
@@ -27,7 +28,6 @@ struct Token {
         : m_token_type(token_type), m_data(std::move(data)) {}
 };
 
-[[nodiscard]] std::expected<std::vector<Token>, std::string> parse_token_stream(
-    std::istream& istream);
+[[nodiscard]] std::vector<Token> lex_stream(std::istream& istream);
 
 }  // namespace lexer

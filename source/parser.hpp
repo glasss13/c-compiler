@@ -1,6 +1,7 @@
 #pragma once
 
 #include <__expected/unexpected.h>
+#include <fmt/core.h>
 
 #include <charconv>
 #include <expected>
@@ -19,7 +20,7 @@ struct AstNode {
     AstNode& operator=(AstNode&&) = delete;
     virtual ~AstNode() = default;
 
-    virtual std::string to_string() const = 0;
+    constexpr virtual std::string to_string() const = 0;
 };
 struct Statement : public AstNode {};
 struct Expression : public AstNode {};
@@ -29,7 +30,9 @@ struct ConstantExpression : public Expression {
 
     explicit ConstantExpression(int constant) : m_constant(constant) {}
 
-    std::string to_string() const override;
+    [[nodiscard]] constexpr std::string to_string() const override {
+        return fmt::format("Constant({})", m_constant);
+    }
 };
 
 struct ReturnStatement : public Statement {
@@ -38,7 +41,9 @@ struct ReturnStatement : public Statement {
     explicit ReturnStatement(std::unique_ptr<Expression> expr)
         : m_expr(std::move(expr)) {}
 
-    std::string to_string() const override;
+    [[nodiscard]] constexpr std::string to_string() const override {
+        return fmt::format("ReturnStatement({})", m_expr->to_string());
+    }
 };
 
 struct Function : public AstNode {
@@ -48,7 +53,10 @@ struct Function : public AstNode {
     Function(std::string name, std::unique_ptr<Statement> statement)
         : m_name(std::move(name)), m_statement(std::move(statement)) {}
 
-    std::string to_string() const override;
+    [[nodiscard]] constexpr std::string to_string() const override {
+        return fmt::format("Function(name: {}, statement: {})", m_name,
+                           m_statement->to_string());
+    }
 };
 
 struct Program : public AstNode {
@@ -57,7 +65,9 @@ struct Program : public AstNode {
     explicit Program(std::unique_ptr<Function> function)
         : m_function(std::move(function)) {}
 
-    std::string to_string() const override;
+    [[nodiscard]] constexpr std::string to_string() const override {
+        return fmt::format("Program({})", m_function->to_string());
+    }
 };
 
 std::expected<std::unique_ptr<Expression>, std::string> parse_expression(

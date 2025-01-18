@@ -31,7 +31,7 @@ target_include_directories(
 target_compile_features(c-compiler_lib PUBLIC cxx_std_23)
 
 find_package(fmt REQUIRED)
-target_link_libraries(c-compiler_lib PRIVATE fmt::fmt)
+target_link_libraries(c-compiler_lib PUBLIC fmt::fmt)
 
 # ---- Declare executable ----
 

@@ -6,23 +6,6 @@
 
 namespace parser {
 
-std::string ConstantExpression::to_string() const {
-    return fmt::format("Constant({})", m_constant);
-}
-
-std::string ReturnStatement::to_string() const {
-    return fmt::format("ReturnStatement({})", m_expr->to_string());
-}
-
-std::string Function::to_string() const {
-    return fmt::format("Function(name: {}, statement: {})", m_name,
-                       m_statement->to_string());
-}
-
-std::string Program::to_string() const {
-    return fmt::format("Program({})", m_function->to_string());
-}
-
 std::expected<std::unique_ptr<Expression>, std::string> parse_expression(
     std::vector<lexer::Token>::iterator& tokens) {
     auto token = *tokens;

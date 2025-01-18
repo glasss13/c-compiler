@@ -1,5 +1,6 @@
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <string>
 
 #include "lexer.hpp"
@@ -9,18 +10,13 @@
 int main() {
     std::ifstream src("return_2.c");
 
-    auto tokens = lexer::parse_token_stream(src);
-    if (!tokens) {
-        std::cout << "error\n";
-        return 1;
-    }
+    auto tokens = lexer::lex_stream(src);
 
-    for (const auto& token : tokens.value()) {
+    for (const auto& token : tokens) {
         std::cout << '[' << token.m_data << ']' << '\n';
     }
 
-    auto it = tokens->begin();
-
+    auto it = tokens.begin();
     auto ast = parser::parse_program(it);
     if (!ast) {
         std::cout << "failed to parse: " << ast.error() << '\n';
