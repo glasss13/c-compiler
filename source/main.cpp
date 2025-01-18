@@ -3,6 +3,7 @@
 #include <iterator>
 #include <string>
 
+#include "codegen.hpp"
 #include "lexer.hpp"
 #include "lib.hpp"
 #include "parser.hpp"
@@ -22,6 +23,12 @@ int main() {
         std::cout << "failed to parse: " << ast.error() << '\n';
     }
     std::cout << "AST:\n" << ast.value()->to_string() << '\n';
+
+    auto output = codegen::codegen_program(**ast);
+    std::cout << "program:\n" << output << '\n';
+
+    std::ofstream out("out.s");
+    out << output;
 
     return 0;
 }

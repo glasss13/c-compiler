@@ -20,6 +20,7 @@ add_library(
     source/lib.cpp
     source/lexer.cpp
     source/parser.cpp
+    source/codegen.cpp
 )
 
 target_include_directories(

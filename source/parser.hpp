@@ -12,6 +12,10 @@
 
 namespace parser {
 
+enum class StatmentType { Return };
+
+enum class ExpressionType { Constant };
+
 struct AstNode {
     AstNode() = default;
     AstNode(const AstNode&) = default;
@@ -22,13 +26,22 @@ struct AstNode {
 
     constexpr virtual std::string to_string() const = 0;
 };
-struct Statement : public AstNode {};
-struct Expression : public AstNode {};
+struct Statement : public AstNode {
+    StatmentType m_type;
+
+    explicit Statement(StatmentType type) : m_type(type) {}
+};
+struct Expression : public AstNode {
+    ExpressionType m_type;
+
+    explicit Expression(ExpressionType type) : m_type(type) {}
+};
 
 struct ConstantExpression : public Expression {
     int m_constant;
 
-    explicit ConstantExpression(int constant) : m_constant(constant) {}
+    explicit ConstantExpression(int constant)
+        : Expression(ExpressionType::Constant), m_constant(constant) {}
 
     [[nodiscard]] constexpr std::string to_string() const override {
         return fmt::format("Constant({})", m_constant);
@@ -39,7 +52,7 @@ struct ReturnStatement : public Statement {
     std::unique_ptr<Expression> m_expr;
 
     explicit ReturnStatement(std::unique_ptr<Expression> expr)
-        : m_expr(std::move(expr)) {}
+        : Statement(StatmentType::Return), m_expr(std::move(expr)) {}
 
     [[nodiscard]] constexpr std::string to_string() const override {
         return fmt::format("ReturnStatement({})", m_expr->to_string());
