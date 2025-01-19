@@ -11,7 +11,7 @@ include(Catch)
 
 # ---- Tests ----
 
-add_executable(c-compiler_test source/c-compiler_test.cpp)
+add_executable(c-compiler_test source/integration/lex_parse.cpp source/integration/codegen.cpp source/unit/lex.cpp)
 target_link_libraries(
     c-compiler_test PRIVATE
     c-compiler_lib

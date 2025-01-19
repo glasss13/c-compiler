@@ -26,11 +26,11 @@ int main() {
 
     std::cout << "AST:\n" << ast.value()->to_string(0) << '\n';
 
-    // auto output = codegen::codegen_program(**ast);
-    // std::cout << "program:\n" << output << '\n';
-    //
-    // std::ofstream out("out.s");
-    // out << output;
+    auto output = codegen::codegen_program(**ast);
+    std::cout << "program:\n" << output << '\n';
+
+    std::ofstream out("out.s");
+    out << output;
 
     return 0;
 }

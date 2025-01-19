@@ -10,6 +10,10 @@ class Recipe(ConanFile):
 
     def requirements(self):
         self.requires("fmt/11.0.2")
+        self.requires("boost/1.83.0")
+
+    def configure(self):
+        self.options["boost"].without_test=True
 
     def build_requirements(self):
         self.test_requires("catch2/3.7.1")

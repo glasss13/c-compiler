@@ -217,7 +217,7 @@ std::expected<std::unique_ptr<Program>, std::string> parse_program(
         }
     }();
 
-    return fmt::format("{}BinaryOp: {}\n{}Left:\n{}\n{}Right:\n{}",
+    return fmt::format("{}BinaryOpExpr: {}\n{}Left:\n{}\n{}Right:\n{}",
                        get_indent(indent), op_char, get_indent(indent + 1),
                        m_lhs->to_string(indent + 2), get_indent(indent + 1),
                        m_rhs->to_string(indent + 2));
@@ -239,7 +239,7 @@ std::expected<std::unique_ptr<Program>, std::string> parse_program(
         }
     }();
 
-    return fmt::format("{}BinaryOp: {}\n{}Left:\n{}\n{}Right:\n{}",
+    return fmt::format("{}BinaryOpTerm: {}\n{}Left:\n{}\n{}Right:\n{}",
                        get_indent(indent), op_char, get_indent(indent + 1),
                        m_lhs->to_string(indent + 2), get_indent(indent + 1),
                        m_rhs->to_string(indent + 2));
