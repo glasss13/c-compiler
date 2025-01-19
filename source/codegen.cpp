@@ -29,38 +29,33 @@ namespace codegen {
 [[nodiscard]] std::string codegen_expression(const parser::Expression& expr) {
     if (const auto* binary_op_expr =
             dynamic_cast<const parser::BinaryOp*>(&expr)) {
+        const auto lhs_gen = codegen_expression(*binary_op_expr->m_lhs);
+        const auto rhs_gen = codegen_expression(*binary_op_expr->m_rhs);
         switch (binary_op_expr->m_op_type) {
             case parser::BinaryOpType::Add: {
-                auto lhs_gen = codegen_expression(*binary_op_expr->m_lhs);
-                auto rhs_gen = codegen_expression(*binary_op_expr->m_rhs);
                 return fmt::format(
                     "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nadd w0, "
                     "w0, w1",
                     lhs_gen, rhs_gen);
             }
-
             case parser::BinaryOpType::Multiply: {
-                auto lhs_gen = codegen_expression(*binary_op_expr->m_lhs);
-                auto rhs_gen = codegen_expression(*binary_op_expr->m_rhs);
                 return fmt::format(
                     "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nmul w0, "
                     "w0, w1",
                     lhs_gen, rhs_gen);
             }
-                // TODO
             case parser::BinaryOpType::Subtract:
-                std::cout << "subtract\n";
-                break;
+                std::cerr << "generating subtract\n";
+                return fmt::format(
+                    "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nsub w0, "
+                    "w1, w0",
+                    lhs_gen, rhs_gen);
             case parser::BinaryOpType::Divide:
-                std::cout << "divide\n";
-                std::unreachable();
+                return fmt::format(
+                    "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nsdiv w0, "
+                    "w1, w0",
+                    lhs_gen, rhs_gen);
         }
-    } else if (const auto* term_expr =
-                   dynamic_cast<const parser::TermExpression*>(&expr)) {
-        return codegen_expression(*term_expr->m_term);
-    } else if (const auto* factor_term =
-                   dynamic_cast<const parser::FactorTerm*>(&expr)) {
-        return codegen_expression(*factor_term->m_factor);
     } else if (const auto* factor =
                    dynamic_cast<const parser::Factor*>(&expr)) {
         switch (factor->m_factor_type) {
