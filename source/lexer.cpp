@@ -29,42 +29,51 @@ namespace lexer {
         cur_token += cur_char;
 
         if (cur_token == "{"sv) {
-            out.emplace_back(TokenType::open_brace, std::move(cur_token));
+            out.emplace_back(TokenType::OpenBrace, std::move(cur_token));
             cur_token.clear();
         } else if (cur_token == "}"sv) {
-            out.emplace_back(TokenType::close_brace, std::move(cur_token));
+            out.emplace_back(TokenType::CloseBrace, std::move(cur_token));
             cur_token.clear();
         } else if (cur_token == "("sv) {
-            out.emplace_back(TokenType::open_paren, std::move(cur_token));
+            out.emplace_back(TokenType::OpenParen, std::move(cur_token));
             cur_token.clear();
         } else if (cur_token == ")"sv) {
-            out.emplace_back(TokenType::close_paren, std::move(cur_token));
+            out.emplace_back(TokenType::CloseParen, std::move(cur_token));
             cur_token.clear();
         } else if (cur_token == ";"sv) {
-            out.emplace_back(TokenType::semicolon, std::move(cur_token));
+            out.emplace_back(TokenType::Semicolon, std::move(cur_token));
             cur_token.clear();
         } else if (cur_token == "int"sv && is_space(istream.peek())) {
-            out.emplace_back(TokenType::int_keyword, std::move(cur_token));
+            out.emplace_back(TokenType::Int, std::move(cur_token));
             cur_token.clear();
         } else if (cur_token == "return"sv && is_space(istream.peek())) {
-            out.emplace_back(TokenType::return_keyword, std::move(cur_token));
+            out.emplace_back(TokenType::Return, std::move(cur_token));
             cur_token.clear();
         } else if (cur_token == "-"sv) {
-            out.emplace_back(TokenType::negation, std::move(cur_token));
+            out.emplace_back(TokenType::Dash, std::move(cur_token));
             cur_token.clear();
         } else if (cur_token == "~"sv) {
-            out.emplace_back(TokenType::bitwise_not, std::move(cur_token));
+            out.emplace_back(TokenType::Tilde, std::move(cur_token));
             cur_token.clear();
         } else if (cur_token == "!"sv) {
-            out.emplace_back(TokenType::logical_not, std::move(cur_token));
+            out.emplace_back(TokenType::Bang, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "+"sv) {
+            out.emplace_back(TokenType::Plus, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "*"sv) {
+            out.emplace_back(TokenType::Asterisk, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "/"sv) {
+            out.emplace_back(TokenType::ForwardSlash, std::move(cur_token));
             cur_token.clear();
         } else if (!is_digit(istream.peek()) &&
                    ranges::all_of(cur_token, is_digit<char>)) {
-            out.emplace_back(TokenType::int_literal, std::move(cur_token));
+            out.emplace_back(TokenType::IntLiteral, std::move(cur_token));
             cur_token.clear();
         } else if (!is_identifier_char(istream.peek()) &&
                    ranges::all_of(cur_token, is_identifier_char<char>)) {
-            out.emplace_back(TokenType::identifier, std::move(cur_token));
+            out.emplace_back(TokenType::Identifier, std::move(cur_token));
             cur_token.clear();
         }
     }

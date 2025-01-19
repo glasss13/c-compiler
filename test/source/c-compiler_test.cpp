@@ -9,10 +9,11 @@
 #include "lib.hpp"
 #include "parser.hpp"
 
-const std::filesystem::path valid_programs_path = "../../test/programs/valid";
+const std::filesystem::path valid_programs_path =
+    "../../../test/programs/valid";
 
 const std::filesystem::path invalid_programs_path =
-    "../../test/programs/invalid";
+    "../../../test/programs/invalid";
 
 const std::string basic_program = R"#(
 int main() {
@@ -31,17 +32,17 @@ TEST_CASE("Lex basic program", "[lex]") {
     std::stringstream ss(basic_program);
     const auto lexed = lexer::lex_stream(ss);
 
-    REQUIRE(lexed[0].m_token_type == lexer::TokenType::int_keyword);
-    REQUIRE(lexed[1].m_token_type == lexer::TokenType::identifier);
+    REQUIRE(lexed[0].m_token_type == lexer::TokenType::Int);
+    REQUIRE(lexed[1].m_token_type == lexer::TokenType::Identifier);
     REQUIRE(lexed[1].m_data == "main");
-    REQUIRE(lexed[2].m_token_type == lexer::TokenType::open_paren);
-    REQUIRE(lexed[3].m_token_type == lexer::TokenType::close_paren);
-    REQUIRE(lexed[4].m_token_type == lexer::TokenType::open_brace);
-    REQUIRE(lexed[5].m_token_type == lexer::TokenType::return_keyword);
-    REQUIRE(lexed[6].m_token_type == lexer::TokenType::int_literal);
+    REQUIRE(lexed[2].m_token_type == lexer::TokenType::OpenParen);
+    REQUIRE(lexed[3].m_token_type == lexer::TokenType::CloseParen);
+    REQUIRE(lexed[4].m_token_type == lexer::TokenType::OpenBrace);
+    REQUIRE(lexed[5].m_token_type == lexer::TokenType::Return);
+    REQUIRE(lexed[6].m_token_type == lexer::TokenType::IntLiteral);
     REQUIRE(lexed[6].m_data == "2");
-    REQUIRE(lexed[7].m_token_type == lexer::TokenType::semicolon);
-    REQUIRE(lexed[8].m_token_type == lexer::TokenType::close_brace);
+    REQUIRE(lexed[7].m_token_type == lexer::TokenType::Semicolon);
+    REQUIRE(lexed[8].m_token_type == lexer::TokenType::CloseBrace);
 }
 
 TEST_CASE("Parse basic program", "[parse]") {
@@ -52,9 +53,13 @@ TEST_CASE("Parse basic program", "[parse]") {
     const auto parsed = parser::parse_program(it);
     REQUIRE(parsed.has_value());
 
-    REQUIRE(parsed->get()->to_string() ==
-            "Program(Function(name: main, statement: "
-            "ReturnStatement(Constant(2))))");
+    std::cerr << parsed->get()->to_string(0);
+
+    REQUIRE(parsed->get()->to_string(0) ==
+            R"#(Program
+  Function: main
+    Return
+      IntLiteral: 2)#");
 }
 
 TEST_CASE("Parse basic error", "[parse]") {
@@ -96,7 +101,6 @@ TEST_CASE("lex and parse invalid programs") {
                 std::cout << l.m_data << '\n';
             }
 
-            // std::cout << "parsed: " << parsed->get()->to_string() << '\n';
             REQUIRE(!parsed);
         }
     }

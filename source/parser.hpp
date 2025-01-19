@@ -14,11 +14,17 @@
 namespace parser {
 
 enum class StatmentType { Return };
-enum class ExpressionType { Constant, UnaryOp };
+enum class FactorType { ParenGroup, UnaryOp, Constant };
 enum class UnaryOpType {
     LogicalNot,
     BitwiseNot,
     Negate,
+};
+enum class BinaryOpType {
+    Add,
+    Subtract,
+    Multiply,
+    Divide,
 };
 
 struct AstNode {
@@ -29,53 +35,91 @@ struct AstNode {
     AstNode& operator=(AstNode&&) = delete;
     virtual ~AstNode() = default;
 
-    constexpr virtual std::string to_string() const = 0;
+    virtual std::string to_string(int indent) const = 0;
 };
 struct Statement : public AstNode {
     StatmentType m_statement_type;
 
     explicit Statement(StatmentType type) : m_statement_type(type) {}
 };
-struct Expression : public AstNode {
-    ExpressionType m_expression_type;
+struct Expression : public AstNode {};
+struct Term : public Expression {};
 
-    explicit Expression(ExpressionType type) : m_expression_type(type) {}
+struct Factor : public Term {
+    FactorType m_factor_type;
+
+    explicit Factor(FactorType type) : m_factor_type(type) {}
 };
 
-struct UnaryOpExpression : public Expression {
-    std::unique_ptr<Expression> m_expression;
+struct BinaryOpExpression : public Expression {
+    std::unique_ptr<Expression> m_lhs;
+    std::unique_ptr<Term> m_rhs;
+    BinaryOpType m_op_type;
+
+    BinaryOpExpression(std::unique_ptr<Expression> lhs,
+                       std::unique_ptr<Term> rhs, BinaryOpType op_type)
+        : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)), m_op_type(op_type) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
+struct TermExpression : public Expression {
+    std::unique_ptr<Term> m_term;
+
+    explicit TermExpression(std::unique_ptr<Term> term)
+        : m_term(std::move(term)) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
+struct BinaryOpTerm : public Term {
+    std::unique_ptr<Term> m_lhs;
+    std::unique_ptr<Factor> m_rhs;
+    BinaryOpType m_op_type;
+
+    BinaryOpTerm(std::unique_ptr<Term> lhs, std::unique_ptr<Factor> rhs,
+                 BinaryOpType op_type)
+        : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)), m_op_type(op_type) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+struct FactorTerm : public Term {
+    std::unique_ptr<Factor> m_factor;
+
+    explicit FactorTerm(std::unique_ptr<Factor> factor)
+        : m_factor(std::move(factor)) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
+struct IntLiteralFactor : public Factor {
+    int m_literal;
+
+    explicit IntLiteralFactor(int literal)
+        : Factor(FactorType::Constant), m_literal(literal) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
+struct UnaryOpFactor : public Factor {
+    std::unique_ptr<Factor> m_factor;
     UnaryOpType m_op_type;
 
-    explicit UnaryOpExpression(std::unique_ptr<Expression> expression,
-                               UnaryOpType op_type)
-        : Expression(ExpressionType::UnaryOp),
-          m_expression(std::move(expression)),
+    UnaryOpFactor(std::unique_ptr<Factor> factor, UnaryOpType op_type)
+        : Factor(FactorType::UnaryOp),
+          m_factor(std::move(factor)),
           m_op_type(op_type) {}
 
-    [[nodiscard]] constexpr std::string to_string() const override {
-        switch (m_op_type) {
-            case UnaryOpType::LogicalNot:
-                return fmt::format("!{}", m_expression->to_string());
-                break;
-            case UnaryOpType::BitwiseNot:
-                return fmt::format("~{}", m_expression->to_string());
-                break;
-            case UnaryOpType::Negate:
-                return fmt::format("-{}", m_expression->to_string());
-                break;
-        }
-    }
+    [[nodiscard]] std::string to_string(int indent) const override;
 };
 
-struct ConstantExpression : public Expression {
-    int m_constant;
+struct ParenGroupFactor : public Factor {
+    std::unique_ptr<Expression> m_expression;
 
-    explicit ConstantExpression(int constant)
-        : Expression(ExpressionType::Constant), m_constant(constant) {}
+    explicit ParenGroupFactor(std::unique_ptr<Expression> expression)
+        : Factor(FactorType::ParenGroup), m_expression(std::move(expression)) {}
 
-    [[nodiscard]] constexpr std::string to_string() const override {
-        return fmt::format("Constant({})", m_constant);
-    }
+    [[nodiscard]] std::string to_string(int indent) const override;
 };
 
 struct ReturnStatement : public Statement {
@@ -84,9 +128,7 @@ struct ReturnStatement : public Statement {
     explicit ReturnStatement(std::unique_ptr<Expression> expr)
         : Statement(StatmentType::Return), m_expr(std::move(expr)) {}
 
-    [[nodiscard]] constexpr std::string to_string() const override {
-        return fmt::format("ReturnStatement({})", m_expr->to_string());
-    }
+    [[nodiscard]] std::string to_string(int indent) const override;
 };
 
 struct Function : public AstNode {
@@ -96,10 +138,7 @@ struct Function : public AstNode {
     Function(std::string name, std::unique_ptr<Statement> statement)
         : m_name(std::move(name)), m_statement(std::move(statement)) {}
 
-    [[nodiscard]] constexpr std::string to_string() const override {
-        return fmt::format("Function(name: {}, statement: {})", m_name,
-                           m_statement->to_string());
-    }
+    [[nodiscard]] std::string to_string(int indent) const override;
 };
 
 struct Program : public AstNode {
@@ -108,10 +147,14 @@ struct Program : public AstNode {
     explicit Program(std::unique_ptr<Function> function)
         : m_function(std::move(function)) {}
 
-    [[nodiscard]] constexpr std::string to_string() const override {
-        return fmt::format("Program({})", m_function->to_string());
-    }
+    [[nodiscard]] std::string to_string(int indent) const override;
 };
+
+std::expected<std::unique_ptr<Factor>, std::string> parse_factor(
+    std::vector<lexer::Token>::iterator& tokens);
+
+std::expected<std::unique_ptr<Term>, std::string> parse_term(
+    std::vector<lexer::Token>::iterator& tokens);
 
 std::expected<std::unique_ptr<Expression>, std::string> parse_expression(
     std::vector<lexer::Token>::iterator& tokens);

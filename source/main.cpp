@@ -23,13 +23,14 @@ int main() {
     if (!ast) {
         std::cout << "failed to parse: " << ast.error() << '\n';
     }
-    std::cout << "AST:\n" << ast.value()->to_string() << '\n';
 
-    auto output = codegen::codegen_program(**ast);
-    std::cout << "program:\n" << output << '\n';
+    std::cout << "AST:\n" << ast.value()->to_string(0) << '\n';
 
-    std::ofstream out("out.s");
-    out << output;
+    // auto output = codegen::codegen_program(**ast);
+    // std::cout << "program:\n" << output << '\n';
+    //
+    // std::ofstream out("out.s");
+    // out << output;
 
     return 0;
 }

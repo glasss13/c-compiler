@@ -7,18 +7,21 @@
 
 namespace lexer {
 enum class TokenType {
-    open_brace,
-    close_brace,
-    open_paren,
-    close_paren,
-    semicolon,
-    int_keyword,
-    return_keyword,
-    identifier,
-    int_literal,
-    negation,
-    bitwise_not,
-    logical_not,
+    OpenBrace,
+    CloseBrace,
+    OpenParen,
+    CloseParen,
+    Semicolon,
+    Int,
+    Return,
+    Identifier,
+    IntLiteral,
+    Dash,
+    Tilde,
+    Bang,
+    Plus,
+    Asterisk,
+    ForwardSlash,
 };
 
 struct Token {
