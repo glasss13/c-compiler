@@ -1,10 +1,11 @@
 #pragma once
 
-#include <__expected/unexpected.h>
 #include <fmt/core.h>
 
 #include <charconv>
+#include <exception>
 #include <expected>
+#include <memory>
 #include <string>
 #include <vector>
 
