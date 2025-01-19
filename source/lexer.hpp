@@ -32,6 +32,7 @@ struct Token {
         : m_token_type(token_type), m_data(std::move(data)) {}
 };
 
-[[nodiscard]] std::vector<Token> lex_stream(std::istream& istream);
+[[nodiscard]] std::vector<Token> lex_program(const std::string& src);
+[[nodiscard]] std::vector<Token> lex_program(std::istream& istream);
 
 }  // namespace lexer

@@ -13,7 +13,12 @@ bool is_digit(auto c) { return static_cast<bool>(std::isdigit(c)); }
 
 namespace lexer {
 
-[[nodiscard]] std::vector<Token> lex_stream(std::istream& istream) {
+[[nodiscard]] std::vector<Token> lex_program(const std::string& src) {
+    std::stringstream ss(src);
+    return lex_program(ss);
+}
+
+[[nodiscard]] std::vector<Token> lex_program(std::istream& istream) {
     using namespace std::literals;
     namespace ranges = std::ranges;
 

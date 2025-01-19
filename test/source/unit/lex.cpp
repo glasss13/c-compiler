@@ -23,7 +23,7 @@ int main() {
 // NOLINTBEGIN
 TEST_CASE("Lex basic program", "[lex][unit]") {
     std::stringstream ss(basic_program);
-    const auto lexed = lexer::lex_stream(ss);
+    const auto lexed = lexer::lex_program(ss);
 
     REQUIRE(lexed[0].m_token_type == lexer::TokenType::Int);
     REQUIRE(lexed[1].m_token_type == lexer::TokenType::Identifier);
@@ -40,7 +40,7 @@ TEST_CASE("Lex basic program", "[lex][unit]") {
 
 TEST_CASE("Parse basic program", "[parse][unit]") {
     std::stringstream ss(basic_program);
-    auto lexed = lexer::lex_stream(ss);
+    auto lexed = lexer::lex_program(ss);
 
     auto it = lexed.begin();
     const auto parsed = parser::parse_program(it);
@@ -55,7 +55,7 @@ TEST_CASE("Parse basic program", "[parse][unit]") {
 
 TEST_CASE("Parse basic error", "[parse][unit]") {
     std::stringstream ss(basic_parse_error);
-    auto lexed = lexer::lex_stream(ss);
+    auto lexed = lexer::lex_program(ss);
 
     auto it = lexed.begin();
     const auto parsed = parser::parse_program(it);

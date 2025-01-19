@@ -22,7 +22,7 @@ TEST_CASE("lex and parse valid programs", "[lex][parse][integraton]") {
         if (entry.is_regular_file() && entry.path().extension() == ".c") {
             std::ifstream file(entry.path());
 
-            auto lexed = lexer::lex_stream(file);
+            auto lexed = lexer::lex_program(file);
             auto it = lexed.begin();
             const auto parsed = parser::parse_program(it);
             REQUIRE(parsed);
@@ -36,7 +36,7 @@ TEST_CASE("lex and parse invalid programs", "[lex][parse][integration]") {
         if (entry.is_regular_file() && entry.path().extension() == ".c") {
             std::ifstream file(entry.path());
 
-            auto lexed = lexer::lex_stream(file);
+            auto lexed = lexer::lex_program(file);
             auto it = lexed.begin();
             const auto parsed = parser::parse_program(it);
             std::cout << entry.path() << '\n';
