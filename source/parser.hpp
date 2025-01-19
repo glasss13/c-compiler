@@ -168,4 +168,107 @@ std::expected<std::unique_ptr<Function>, std::string> parse_function(
 std::expected<std::unique_ptr<Program>, std::string> parse_program(
     std::vector<lexer::Token>::iterator& tokens);
 
+struct ProgramV;
+struct FunctionV;
+struct ReturnStatementV;
+struct ParenGroupFactorV;
+struct BinaryOpExpressionV;
+struct BinaryOpTermV;
+struct ParenGroupFactorV;
+struct UnaryOpFactorV;
+struct IntLiteralFactorV;
+
+template <typename T>
+using P = std::unique_ptr<T>;
+
+using StatementV = std::variant<P<ReturnStatementV>>;
+
+using FactorV =
+    std::variant<P<ParenGroupFactorV>, P<UnaryOpFactorV>, P<IntLiteralFactorV>>;
+using TermV = std::variant<FactorV, P<BinaryOpTermV>>;
+using ExpressionV = std::variant<TermV, P<BinaryOpExpressionV>>;
+using AstNodeV =
+    std::variant<P<ProgramV>, P<FunctionV>, P<ReturnStatementV>,
+                 P<BinaryOpExpressionV>, P<BinaryOpTermV>, P<ParenGroupFactorV>,
+                 P<UnaryOpFactorV>, P<IntLiteralFactorV>, ExpressionV, TermV,
+                 FactorV, StatementV>;
+
+struct IntLiteralFactorV {
+    int m_literal;
+
+    explicit IntLiteralFactorV(int literal) : m_literal(literal) {}
+};
+
+struct UnaryOpFactorV {
+    FactorV m_factor;
+    UnaryOpType m_op_type;
+
+    UnaryOpFactorV(FactorV factor, UnaryOpType op_type)
+        : m_factor(std::move(factor)), m_op_type(op_type) {}
+};
+
+struct ParenGroupFactorV {
+    ExpressionV m_expression;
+
+    explicit ParenGroupFactorV(ExpressionV expression)
+        : m_expression(std::move(expression)) {}
+};
+
+struct BinaryOpTermV {
+    TermV m_lhs;
+    FactorV m_rhs;
+    BinaryOpType m_op_type;
+
+    BinaryOpTermV(TermV lhs, FactorV rhs, BinaryOpType op_type)
+        : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)), m_op_type(op_type) {}
+};
+
+struct BinaryOpExpressionV {
+    ExpressionV m_lhs;
+    TermV m_rhs;
+    BinaryOpType m_op_type;
+
+    BinaryOpExpressionV(ExpressionV lhs, TermV rhs, BinaryOpType op_type)
+        : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)), m_op_type(op_type) {}
+};
+
+struct ReturnStatementV {
+    ExpressionV m_expr;
+
+    explicit ReturnStatementV(ExpressionV expr) : m_expr(std::move(expr)) {}
+};
+struct FunctionV {
+    std::string m_name;
+    StatementV m_statement;
+
+    FunctionV(std::string name, StatementV statement)
+        : m_name(std::move(name)), m_statement(std::move(statement)) {}
+};
+struct ProgramV {
+    P<FunctionV> m_function;
+
+    explicit ProgramV(P<FunctionV> function)
+        : m_function(std::move(function)) {}
+};
+
+std::expected<FactorV, std::string> parse_factor_v(
+    std::vector<lexer::Token>::iterator& tokens);
+
+std::expected<TermV, std::string> parse_term_v(
+    std::vector<lexer::Token>::iterator& tokens);
+
+std::expected<ExpressionV, std::string> parse_expression_v(
+    std::vector<lexer::Token>::iterator& tokens);
+
+std::expected<StatementV, std::string> parse_statement_v(
+    std::vector<lexer::Token>::iterator& tokens);
+
+std::expected<P<FunctionV>, std::string> parse_function_v(
+    std::vector<lexer::Token>::iterator& tokens);
+
+std::expected<P<ProgramV>, std::string> parse_program_v(
+    std::vector<lexer::Token>::iterator& tokens);
+
+std::string ast_to_string(AstNodeV node, int indent = 0);
+
 }  // namespace parser

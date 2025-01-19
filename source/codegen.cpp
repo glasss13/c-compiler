@@ -101,11 +101,6 @@ namespace codegen {
         }
     }
 
-    std::cout << "-------------\n";
-    std::cout << expr.to_string(0) << '\n';
-
-    std::cout << "codegen Factor\n";
-
     std::unreachable();
 }
 

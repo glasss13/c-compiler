@@ -19,18 +19,22 @@ int main() {
     }
 
     auto it = tokens.begin();
-    auto ast = parser::parse_program(it);
+    auto ast = parser::parse_program_v(it);
+
+    // auto it = tokens.begin();
+    // auto ast = parser::parse_program(it);
     if (!ast) {
         std::cout << "failed to parse: " << ast.error() << '\n';
     }
 
-    std::cout << "AST:\n" << ast.value()->to_string(0) << '\n';
+    // std::cout << "AST:\n" << ast.value()->to_string(0) << '\n';
+    std::cout << "AST:\n" << parser::ast_to_string(std::move(ast.value()));
 
-    auto output = codegen::codegen_program(**ast);
-    std::cout << "program:\n" << output << '\n';
+    // auto output = codegen::codegen_program(**ast);
+    // std::cout << "program:\n" << output << '\n';
 
-    std::ofstream out("out.s");
-    out << output;
+    // std::ofstream out("out.s");
+    // out << output;
 
     return 0;
 }
