@@ -28,7 +28,8 @@ int main() {
     }
 
     // std::cout << "AST:\n" << ast.value()->to_string(0) << '\n';
-    std::cout << "AST:\n" << parser::ast_to_string(std::move(ast.value()));
+    // std::cout << "AST:\n"
+    //           << parser::ast_to_string(std::move(ast.value())) << '\n';
 
     // auto output = codegen::codegen_program(**ast);
     // std::cout << "program:\n" << output << '\n';

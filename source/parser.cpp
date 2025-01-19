@@ -91,7 +91,7 @@ std::expected<std::unique_ptr<Term>, std::string> parse_term(
             return std::unexpected(next_factor.error());
         }
 
-        factor = std::make_unique<BinaryOpTerm>(
+        factor = std::make_unique<BinaryOp>(
             std::move(factor), std::move(next_factor.value()), op_type);
     }
 
@@ -119,7 +119,7 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_expression(
         if (!next_term) {
             return std::unexpected(next_term.error());
         }
-        term = std::make_unique<BinaryOpExpression>(
+        term = std::make_unique<BinaryOp>(
             std::move(term), std::move(next_term.value()), op_type);
     }
 
@@ -201,7 +201,7 @@ std::expected<std::unique_ptr<Program>, std::string> parse_program(
     return std::make_unique<Program>(std::move(function.value()));
 }
 
-[[nodiscard]] std::string BinaryOpExpression::to_string(int indent) const {
+[[nodiscard]] std::string BinaryOp::to_string(int indent) const {
     const auto op_char = [&]() {
         switch (m_op_type) {
             case BinaryOpType::Add:
@@ -225,24 +225,6 @@ std::expected<std::unique_ptr<Program>, std::string> parse_program(
 
 [[nodiscard]] std::string TermExpression::to_string(int indent) const {
     return m_term->to_string(indent);
-}
-
-[[nodiscard]] std::string BinaryOpTerm::to_string(int indent) const {
-    const auto op_char = [&]() {
-        switch (m_op_type) {
-            case BinaryOpType::Multiply:
-                return '*';
-            case BinaryOpType::Divide:
-                return '/';
-            default:
-                std::unreachable();
-        }
-    }();
-
-    return fmt::format("{}BinaryOpTerm: {}\n{}Left:\n{}\n{}Right:\n{}",
-                       get_indent(indent), op_char, get_indent(indent + 1),
-                       m_lhs->to_string(indent + 2), get_indent(indent + 1),
-                       m_rhs->to_string(indent + 2));
 }
 
 [[nodiscard]] std::string FactorTerm::to_string(int indent) const {
@@ -365,7 +347,7 @@ std::expected<std::unique_ptr<Program>, std::string> parse_program(
             return std::unexpected(next_factor.error());
         }
 
-        factor = std::make_unique<BinaryOpTermV>(
+        factor = std::make_unique<BinaryOpExpressionV>(
             std::move(factor), std::move(next_factor.value()), op_type);
     }
 
@@ -528,30 +510,7 @@ std::string ast_to_string(AstNodeV node, int indent) {
                 }
             }();
 
-            return fmt::format("{}BinaryOpExpr: {}\n{}Left:\n{}\n{}Right:\n{}",
-                               get_indent(indent), op_char,
-                               get_indent(indent + 1),
-                               ast_to_string(std::move(n->m_lhs), indent + 2),
-                               get_indent(indent + 1),
-                               ast_to_string(std::move(n->m_rhs), indent + 2));
-        }
-        std::string operator()(P<BinaryOpTermV>& n) const {
-            const auto op_char = [&]() {
-                switch (n->m_op_type) {
-                    case BinaryOpType::Add:
-                        return '+';
-                    case BinaryOpType::Subtract:
-                        return '-';
-                    case BinaryOpType::Multiply:
-                        return '*';
-                    case BinaryOpType::Divide:
-                        return '/';
-                    default:
-                        std::unreachable();
-                }
-            }();
-
-            return fmt::format("{}BinaryOpExpr: {}\n{}Left:\n{}\n{}Right:\n{}",
+            return fmt::format("{}BinaryOp: {}\n{}Left:\n{}\n{}Right:\n{}",
                                get_indent(indent), op_char,
                                get_indent(indent + 1),
                                ast_to_string(std::move(n->m_lhs), indent + 2),

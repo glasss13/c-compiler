@@ -51,13 +51,13 @@ struct Factor : public Term {
     explicit Factor(FactorType type) : m_factor_type(type) {}
 };
 
-struct BinaryOpExpression : public Expression {
+struct BinaryOp : public Term {
     std::unique_ptr<Expression> m_lhs;
     std::unique_ptr<Term> m_rhs;
     BinaryOpType m_op_type;
 
-    BinaryOpExpression(std::unique_ptr<Expression> lhs,
-                       std::unique_ptr<Term> rhs, BinaryOpType op_type)
+    BinaryOp(std::unique_ptr<Expression> lhs, std::unique_ptr<Term> rhs,
+             BinaryOpType op_type)
         : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)), m_op_type(op_type) {}
 
     [[nodiscard]] std::string to_string(int indent) const override;
@@ -72,17 +72,6 @@ struct TermExpression : public Expression {
     [[nodiscard]] std::string to_string(int indent) const override;
 };
 
-struct BinaryOpTerm : public Term {
-    std::unique_ptr<Term> m_lhs;
-    std::unique_ptr<Factor> m_rhs;
-    BinaryOpType m_op_type;
-
-    BinaryOpTerm(std::unique_ptr<Term> lhs, std::unique_ptr<Factor> rhs,
-                 BinaryOpType op_type)
-        : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)), m_op_type(op_type) {}
-
-    [[nodiscard]] std::string to_string(int indent) const override;
-};
 struct FactorTerm : public Term {
     std::unique_ptr<Factor> m_factor;
 
@@ -173,7 +162,6 @@ struct FunctionV;
 struct ReturnStatementV;
 struct ParenGroupFactorV;
 struct BinaryOpExpressionV;
-struct BinaryOpTermV;
 struct ParenGroupFactorV;
 struct UnaryOpFactorV;
 struct IntLiteralFactorV;
@@ -185,13 +173,12 @@ using StatementV = std::variant<P<ReturnStatementV>>;
 
 using FactorV =
     std::variant<P<ParenGroupFactorV>, P<UnaryOpFactorV>, P<IntLiteralFactorV>>;
-using TermV = std::variant<FactorV, P<BinaryOpTermV>>;
+using TermV = std::variant<FactorV, P<BinaryOpExpressionV>>;
 using ExpressionV = std::variant<TermV, P<BinaryOpExpressionV>>;
-using AstNodeV =
-    std::variant<P<ProgramV>, P<FunctionV>, P<ReturnStatementV>,
-                 P<BinaryOpExpressionV>, P<BinaryOpTermV>, P<ParenGroupFactorV>,
-                 P<UnaryOpFactorV>, P<IntLiteralFactorV>, ExpressionV, TermV,
-                 FactorV, StatementV>;
+using AstNodeV = std::variant<P<ProgramV>, P<FunctionV>, P<ReturnStatementV>,
+                              P<BinaryOpExpressionV>, P<ParenGroupFactorV>,
+                              P<UnaryOpFactorV>, P<IntLiteralFactorV>,
+                              ExpressionV, TermV, FactorV, StatementV>;
 
 struct IntLiteralFactorV {
     int m_literal;
@@ -212,15 +199,6 @@ struct ParenGroupFactorV {
 
     explicit ParenGroupFactorV(ExpressionV expression)
         : m_expression(std::move(expression)) {}
-};
-
-struct BinaryOpTermV {
-    TermV m_lhs;
-    FactorV m_rhs;
-    BinaryOpType m_op_type;
-
-    BinaryOpTermV(TermV lhs, FactorV rhs, BinaryOpType op_type)
-        : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)), m_op_type(op_type) {}
 };
 
 struct BinaryOpExpressionV {

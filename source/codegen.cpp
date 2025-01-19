@@ -28,7 +28,7 @@ namespace codegen {
 
 [[nodiscard]] std::string codegen_expression(const parser::Expression& expr) {
     if (const auto* binary_op_expr =
-            dynamic_cast<const parser::BinaryOpExpression*>(&expr)) {
+            dynamic_cast<const parser::BinaryOp*>(&expr)) {
         switch (binary_op_expr->m_op_type) {
             case parser::BinaryOpType::Add: {
                 auto lhs_gen = codegen_expression(*binary_op_expr->m_lhs);
@@ -39,12 +39,17 @@ namespace codegen {
                     lhs_gen, rhs_gen);
             }
 
+            case parser::BinaryOpType::Multiply: {
+                auto lhs_gen = codegen_expression(*binary_op_expr->m_lhs);
+                auto rhs_gen = codegen_expression(*binary_op_expr->m_rhs);
+                return fmt::format(
+                    "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nmul w0, "
+                    "w0, w1",
+                    lhs_gen, rhs_gen);
+            }
+                // TODO
             case parser::BinaryOpType::Subtract:
                 std::cout << "subtract\n";
-                break;
-                // TODO
-            case parser::BinaryOpType::Multiply:
-                std::cout << "multiply\n";
                 break;
             case parser::BinaryOpType::Divide:
                 std::cout << "divide\n";
@@ -53,27 +58,6 @@ namespace codegen {
     } else if (const auto* term_expr =
                    dynamic_cast<const parser::TermExpression*>(&expr)) {
         return codegen_expression(*term_expr->m_term);
-    } else if (const auto* binary_op_term =
-                   dynamic_cast<const parser::BinaryOpTerm*>(&expr)) {
-        switch (binary_op_term->m_op_type) {
-            case parser::BinaryOpType::Multiply: {
-                auto lhs_gen = codegen_expression(*binary_op_term->m_lhs);
-                auto rhs_gen = codegen_expression(*binary_op_term->m_rhs);
-                return fmt::format(
-                    "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nmul w0, "
-                    "w0, w1",
-                    lhs_gen, rhs_gen);
-            }
-            case parser::BinaryOpType::Divide:
-                std::cout << "divide2\n";
-                break;
-            case parser::BinaryOpType::Add:
-                std::cout << "add2\n";
-                break;
-            case parser::BinaryOpType::Subtract:
-                std::cout << "sub2\n";
-                break;
-        }
     } else if (const auto* factor_term =
                    dynamic_cast<const parser::FactorTerm*>(&expr)) {
         return codegen_expression(*factor_term->m_factor);
