@@ -125,6 +125,9 @@ Token TokenStream::consume() { return m_tokens[m_idx++]; }
             out.emplace_back(TokenType::GreaterThanOrEqual,
                              std::move(cur_token));
             cur_token.clear();
+        } else if (cur_token == "%"sv) {
+            out.emplace_back(TokenType::Percent, std::move(cur_token));
+            cur_token.clear();
         } else if (!is_digit(istream.peek()) &&
                    ranges::all_of(cur_token, is_digit<char>)) {
             out.emplace_back(TokenType::IntLiteral, std::move(cur_token));

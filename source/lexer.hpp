@@ -30,6 +30,7 @@ enum class TokenType {
     LessThanOrEqual,
     GreaterThan,
     GreaterThanOrEqual,
+    Percent,
 };
 
 struct Token {

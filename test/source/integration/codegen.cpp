@@ -125,4 +125,12 @@ TEST_CASE("Or false", "[integration]") {
     const auto status_code = compile_and_run(*assembly, true);
     REQUIRE(status_code == 0);
 }
+
+TEST_CASE("Modulo", "[integration]") {
+    std::string program = "int main() { return 17%5; }";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 2);
+}
 // NOLINTEND

@@ -33,6 +33,7 @@ enum class BinaryOpType {
     NotEqual,
     LogicalAnd,
     LogicalOr,
+    Modulo,
 };
 
 struct AstNode {

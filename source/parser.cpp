@@ -10,6 +10,49 @@ inline std::string get_indent(int level) {
     std::string out(static_cast<size_t>(level * 2), ' ');
     return out;
 }
+
+parser::BinaryOpType bin_op_type(lexer::TokenType token) {
+    switch (token) {
+        case lexer::TokenType::Dash:
+            return parser::BinaryOpType::Subtract;
+        case lexer::TokenType::Plus:
+            return parser::BinaryOpType::Add;
+        case lexer::TokenType::Asterisk:
+            return parser::BinaryOpType::Multiply;
+        case lexer::TokenType::ForwardSlash:
+            return parser::BinaryOpType::Divide;
+        case lexer::TokenType::DoubleAnd:
+            return parser::BinaryOpType::LogicalAnd;
+        case lexer::TokenType::DoubleOr:
+            return parser::BinaryOpType::LogicalOr;
+        case lexer::TokenType::DoubleEqual:
+            return parser::BinaryOpType::Equal;
+        case lexer::TokenType::NotEqual:
+            return parser::BinaryOpType::NotEqual;
+        case lexer::TokenType::LessThan:
+            return parser::BinaryOpType::LessThan;
+        case lexer::TokenType::LessThanOrEqual:
+            return parser::BinaryOpType::LessThanOrEqual;
+        case lexer::TokenType::GreaterThan:
+            return parser::BinaryOpType::GreaterThan;
+        case lexer::TokenType::GreaterThanOrEqual:
+            return parser::BinaryOpType::GreaterThanOrEqual;
+        case lexer::TokenType::Percent:
+            return parser::BinaryOpType::Modulo;
+        case lexer::TokenType::OpenBrace:
+        case lexer::TokenType::CloseBrace:
+        case lexer::TokenType::OpenParen:
+        case lexer::TokenType::CloseParen:
+        case lexer::TokenType::Semicolon:
+        case lexer::TokenType::Int:
+        case lexer::TokenType::Return:
+        case lexer::TokenType::Identifier:
+        case lexer::TokenType::IntLiteral:
+        case lexer::TokenType::Bang:
+        case lexer::TokenType::Tilde:
+            std::unreachable();
+    }
+}
 }  // namespace
 
 namespace parser {
@@ -145,16 +188,14 @@ parse_equality_expression(lexer::TokenStream& token_stream) {
     while (token_stream.has_tok(TokenType::NotEqual) ||
            token_stream.has_tok(TokenType::DoubleEqual)) {
         const auto op_token = token_stream.consume();
-        const auto op_type = op_token.m_token_type == TokenType::NotEqual
-                                 ? BinaryOpType::NotEqual
-                                 : BinaryOpType::Equal;
 
         auto next_expr = parse_relational_expression(token_stream);
         if (!next_expr) {
             return std::unexpected(next_expr.error());
         }
         expr = std::make_unique<BinaryOpExpression>(
-            std::move(expr), std::move(*next_expr), op_type);
+            std::move(expr), std::move(*next_expr),
+            bin_op_type(op_token.m_token_type));
     }
 
     return expr;
@@ -176,28 +217,14 @@ parse_relational_expression(lexer::TokenStream& token_stream) {
            token_stream.has_tok(TokenType::LessThanOrEqual) ||
            token_stream.has_tok(TokenType::GreaterThanOrEqual)) {
         const auto op_token = token_stream.consume();
-        const auto op_type = [&]() {
-            if (op_token.m_token_type == TokenType::LessThan) {
-                return BinaryOpType::LessThan;
-            }
-            if (op_token.m_token_type == TokenType::GreaterThan) {
-                return BinaryOpType::GreaterThan;
-            }
-            if (op_token.m_token_type == TokenType::LessThanOrEqual) {
-                return BinaryOpType::LessThanOrEqual;
-            }
-            if (op_token.m_token_type == TokenType::GreaterThanOrEqual) {
-                return BinaryOpType::GreaterThanOrEqual;
-            }
-            std::unreachable();
-        }();
 
         auto next_expr = parse_additive_expression(token_stream);
         if (!next_expr) {
             return std::unexpected(next_expr.error());
         }
         expr = std::make_unique<BinaryOpExpression>(
-            std::move(expr), std::move(*next_expr), op_type);
+            std::move(expr), std::move(*next_expr),
+            bin_op_type(op_token.m_token_type));
     }
     return expr;
 }
@@ -215,16 +242,14 @@ parse_additive_expression(lexer::TokenStream& token_stream) {
     while (token_stream.has_tok(TokenType::Plus) ||
            token_stream.has_tok(TokenType::Dash)) {
         const auto op_token = token_stream.consume();
-        const auto op_type = op_token.m_token_type == TokenType::Plus
-                                 ? BinaryOpType::Add
-                                 : BinaryOpType::Subtract;
 
         auto next_expr = parse_term(token_stream);
         if (!next_expr) {
             return std::unexpected(next_expr.error());
         }
         expr = std::make_unique<BinaryOpExpression>(
-            std::move(expr), std::move(*next_expr), op_type);
+            std::move(expr), std::move(*next_expr),
+            bin_op_type(op_token.m_token_type));
     }
 
     return expr;
@@ -294,12 +319,9 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_term(
     std::unique_ptr<Expression> factor = std::move(maybe_factor.value());
 
     while (token_stream.has_tok(TokenType::Asterisk) ||
-           token_stream.has_tok(TokenType::ForwardSlash)) {
+           token_stream.has_tok(TokenType::ForwardSlash) ||
+           token_stream.has_tok(TokenType::Percent)) {
         const auto op_token = token_stream.consume();
-
-        auto op_type = op_token.m_token_type == TokenType::Asterisk
-                           ? BinaryOpType::Multiply
-                           : BinaryOpType::Divide;
 
         auto next_factor = parse_factor(token_stream);
         if (!next_factor) {
@@ -307,7 +329,8 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_term(
         }
 
         factor = std::make_unique<BinaryOpExpression>(
-            std::move(factor), std::move(next_factor.value()), op_type);
+            std::move(factor), std::move(next_factor.value()),
+            bin_op_type(op_token.m_token_type));
     }
 
     return factor;
@@ -341,6 +364,8 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_term(
                 return "&&"sv;
             case BinaryOpType::LogicalOr:
                 return "||"sv;
+            case BinaryOpType::Modulo:
+                return "%"sv;
         }
     }();
 

@@ -79,6 +79,16 @@ namespace codegen {
                 "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nsdiv w0, "
                 "w1, w0",
                 lhs_gen, rhs_gen);
+        case parser::BinaryOpType::Modulo:
+            return fmt::format(
+                "{}\n"
+                "str w0, [sp, #-16]!\n"
+                "{}\n"
+                "ldr w1, [sp], #16\n"
+                "sdiv w2, w1, w0\n"
+                "msub w0, w2, w0, w1\n",
+                lhs_gen, rhs_gen);
+
         case parser::BinaryOpType::Equal:
             return fmt::format(
                 "{}\n"
