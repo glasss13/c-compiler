@@ -27,11 +27,13 @@ TEST_CASE("Compile and check return codes",
             std::string file_contents{std::istreambuf_iterator<char>(file),
                                       std::istreambuf_iterator<char>()};
 
+            std::cerr << entry.path() << '\n';
             std::stringstream ss(file_contents);
             const auto lexed = lexer::lex_program(ss);
             const auto parsed_ast = parser::parse_program(lexed);
             REQUIRE(parsed_ast);
-            auto codegen = codegen::codegen_program(**parsed_ast);
+            const auto generator = codegen::AArch64Generator();
+            auto codegen = generator.codegen_program(**parsed_ast);
 
             auto our_status_code = compile_and_run(codegen, true);
             auto reference_status_code = compile_and_run(file_contents, false);
@@ -71,5 +73,56 @@ TEST_CASE("Divide numbers", "[integration]") {
     REQUIRE(assembly);
     const auto status_code = compile_and_run(*assembly, true);
     REQUIRE(status_code == 7);
+}
+
+TEST_CASE("Logical Equality(true)", "[integration]") {
+    std::string program = "int main() { return 5==5;}";
+    const auto lexed = lexer::lex_program(program);
+    for (const auto& l : lexed) {
+        std::cerr << fmt::format("[{}]\n", l.m_data);
+    }
+    const auto assembly = c_compiler::compile_code(program);
+    if (!assembly) {
+        std::cerr << assembly.error() << '\n';
+    }
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 1);
+}
+
+TEST_CASE("Logical Equality(false)", "[integration]") {
+    std::string program = "int main() { return 5==6;}";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 0);
+}
+TEST_CASE("Greater than(true)", "[integration]") {
+    std::string program = "int main() { return 6>5;}";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 1);
+}
+TEST_CASE("Greater than(false)", "[integration]") {
+    std::string program = "int main() { return 5>6;}";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 0);
+}
+TEST_CASE("Greater than and precedence(true)", "[integration]") {
+    std::string program = "int main() { return 13-5>2+2;}";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 1);
+}
+TEST_CASE("Or false", "[integration]") {
+    std::string program = "int main() { return 0||0; }";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 0);
 }
 // NOLINTEND
