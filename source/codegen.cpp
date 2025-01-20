@@ -27,74 +27,66 @@ namespace codegen {
 }
 
 [[nodiscard]] std::string codegen_expression(const parser::Expression& expr) {
-    if (const auto* binary_op_expr =
-            dynamic_cast<const parser::BinaryOp*>(&expr)) {
-        const auto lhs_gen = codegen_expression(*binary_op_expr->m_lhs);
-        const auto rhs_gen = codegen_expression(*binary_op_expr->m_rhs);
-        switch (binary_op_expr->m_op_type) {
-            case parser::BinaryOpType::Add: {
-                return fmt::format(
-                    "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nadd w0, "
-                    "w0, w1",
-                    lhs_gen, rhs_gen);
-            }
-            case parser::BinaryOpType::Multiply: {
-                return fmt::format(
-                    "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nmul w0, "
-                    "w0, w1",
-                    lhs_gen, rhs_gen);
-            }
-            case parser::BinaryOpType::Subtract:
-                std::cerr << "generating subtract\n";
-                return fmt::format(
-                    "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nsub w0, "
-                    "w1, w0",
-                    lhs_gen, rhs_gen);
-            case parser::BinaryOpType::Divide:
-                return fmt::format(
-                    "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nsdiv w0, "
-                    "w1, w0",
-                    lhs_gen, rhs_gen);
+    switch (expr.m_expr_type) {
+        case parser::ExpressionType::BinaryOp:
+            return codegen_binary_op(
+                dynamic_cast<const parser::BinaryOpExpression&>(expr));
+        case parser::ExpressionType::UnaryOp: {
+            const auto& unary_op_expr =
+                dynamic_cast<const parser::UnaryOpExpression&>(expr);
+            return codegen_unary_op(unary_op_expr);
         }
-    } else if (const auto* factor =
-                   dynamic_cast<const parser::Factor*>(&expr)) {
-        switch (factor->m_factor_type) {
-            case parser::FactorType::Constant: {
-                const auto& const_expression =
-                    dynamic_cast<const parser::IntLiteralFactor&>(*factor);
-
-                return fmt::format("mov w0, #{}", const_expression.m_literal);
-            }
-            case parser::FactorType::UnaryOp: {
-                const auto& unary_op_expression =
-                    dynamic_cast<const parser::UnaryOpFactor&>(*factor);
-
-                return codegen_unary_op(unary_op_expression);
-            }
-            case parser::FactorType::ParenGroup: {
-                const auto& paren_group_factor =
-                    dynamic_cast<const parser::ParenGroupFactor&>(*factor);
-
-                return codegen_expression(*paren_group_factor.m_expression);
-            }
+        case parser::ExpressionType::IntLiteral: {
+            const auto& literal_expr =
+                dynamic_cast<const parser::IntLiteralExpression&>(expr);
+            return fmt::format("mov w0, #{}", literal_expr.m_literal);
         }
     }
+}
 
-    std::unreachable();
+[[nodiscard]] std::string codegen_binary_op(
+    const parser::BinaryOpExpression& expr) {
+    const auto lhs_gen = codegen_expression(*expr.m_lhs);
+    const auto rhs_gen = codegen_expression(*expr.m_rhs);
+    switch (expr.m_op_type) {
+        case parser::BinaryOpType::Add: {
+            return fmt::format(
+                "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nadd w0, "
+                "w0, w1",
+                lhs_gen, rhs_gen);
+        }
+        case parser::BinaryOpType::Multiply: {
+            return fmt::format(
+                "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nmul w0, "
+                "w0, w1",
+                lhs_gen, rhs_gen);
+        }
+        case parser::BinaryOpType::Subtract:
+            std::cerr << "generating subtract\n";
+            return fmt::format(
+                "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nsub w0, "
+                "w1, w0",
+                lhs_gen, rhs_gen);
+        case parser::BinaryOpType::Divide:
+            return fmt::format(
+                "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nsdiv w0, "
+                "w1, w0",
+                lhs_gen, rhs_gen);
+    }
 }
 
 [[nodiscard]] std::string codegen_unary_op(
-    const parser::UnaryOpFactor& unary_op) {
+    const parser::UnaryOpExpression& unary_op) {
     switch (unary_op.m_op_type) {
         case parser::UnaryOpType::LogicalNot:
             return fmt::format("{}\ncmp w0, 0\ncset w0, eq",
-                               codegen_expression(*unary_op.m_factor));
+                               codegen_expression(*unary_op.m_expr));
         case parser::UnaryOpType::BitwiseNot:
             return fmt::format("{}\nmvn w0, w0",
-                               codegen_expression(*unary_op.m_factor));
+                               codegen_expression(*unary_op.m_expr));
         case parser::UnaryOpType::Negate:
             return fmt::format("{}\nneg w0, w0",
-                               codegen_expression(*unary_op.m_factor));
+                               codegen_expression(*unary_op.m_expr));
     }
 }
 

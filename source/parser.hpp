@@ -14,7 +14,7 @@
 namespace parser {
 
 enum class StatmentType { Return };
-enum class FactorType { ParenGroup, UnaryOp, Constant };
+enum class ExpressionType { BinaryOp, UnaryOp, IntLiteral };
 enum class UnaryOpType {
     LogicalNot,
     BitwiseNot,
@@ -42,53 +42,44 @@ struct Statement : public AstNode {
 
     explicit Statement(StatmentType type) : m_statement_type(type) {}
 };
-struct Expression : public AstNode {};
-struct Term : public Expression {};
+struct Expression : public AstNode {
+    ExpressionType m_expr_type;
 
-struct Factor : public Term {
-    FactorType m_factor_type;
-
-    explicit Factor(FactorType type) : m_factor_type(type) {}
+    explicit Expression(ExpressionType type) : m_expr_type(type) {}
 };
 
-struct BinaryOp : public Term {
+struct BinaryOpExpression : public Expression {
     std::unique_ptr<Expression> m_lhs;
     std::unique_ptr<Expression> m_rhs;
     BinaryOpType m_op_type;
 
-    BinaryOp(std::unique_ptr<Expression> lhs, std::unique_ptr<Expression> rhs,
-             BinaryOpType op_type)
-        : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)), m_op_type(op_type) {}
-
-    [[nodiscard]] std::string to_string(int indent) const override;
-};
-
-struct IntLiteralFactor : public Factor {
-    int m_literal;
-
-    explicit IntLiteralFactor(int literal)
-        : Factor(FactorType::Constant), m_literal(literal) {}
-
-    [[nodiscard]] std::string to_string(int indent) const override;
-};
-
-struct UnaryOpFactor : public Factor {
-    std::unique_ptr<Factor> m_factor;
-    UnaryOpType m_op_type;
-
-    UnaryOpFactor(std::unique_ptr<Factor> factor, UnaryOpType op_type)
-        : Factor(FactorType::UnaryOp),
-          m_factor(std::move(factor)),
+    BinaryOpExpression(std::unique_ptr<Expression> lhs,
+                       std::unique_ptr<Expression> rhs, BinaryOpType op_type)
+        : Expression(ExpressionType::BinaryOp),
+          m_lhs(std::move(lhs)),
+          m_rhs(std::move(rhs)),
           m_op_type(op_type) {}
 
     [[nodiscard]] std::string to_string(int indent) const override;
 };
 
-struct ParenGroupFactor : public Factor {
-    std::unique_ptr<Expression> m_expression;
+struct IntLiteralExpression : public Expression {
+    int m_literal;
 
-    explicit ParenGroupFactor(std::unique_ptr<Expression> expression)
-        : Factor(FactorType::ParenGroup), m_expression(std::move(expression)) {}
+    explicit IntLiteralExpression(int literal)
+        : Expression(ExpressionType::IntLiteral), m_literal(literal) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
+struct UnaryOpExpression : public Expression {
+    std::unique_ptr<Expression> m_expr;
+    UnaryOpType m_op_type;
+
+    UnaryOpExpression(std::unique_ptr<Expression> expr, UnaryOpType op_type)
+        : Expression(ExpressionType::UnaryOp),
+          m_expr(std::move(expr)),
+          m_op_type(op_type) {}
 
     [[nodiscard]] std::string to_string(int indent) const override;
 };
@@ -121,10 +112,10 @@ struct Program : public AstNode {
     [[nodiscard]] std::string to_string(int indent) const override;
 };
 
-std::expected<std::unique_ptr<Factor>, std::string> parse_factor(
+std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
     lexer::TokenStream& token_stream);
 
-std::expected<std::unique_ptr<Term>, std::string> parse_term(
+std::expected<std::unique_ptr<Expression>, std::string> parse_term(
     lexer::TokenStream& token_stream);
 
 std::expected<std::unique_ptr<Expression>, std::string> parse_expression(

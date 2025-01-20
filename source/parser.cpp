@@ -14,7 +14,7 @@ inline std::string get_indent(int level) {
 
 namespace parser {
 
-std::expected<std::unique_ptr<Factor>, std::string> parse_factor(
+std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
     lexer::TokenStream& token_stream) {
     using lexer::TokenType;
 
@@ -23,7 +23,7 @@ std::expected<std::unique_ptr<Factor>, std::string> parse_factor(
         std::from_chars(token->m_data.data(),
                         token->m_data.data() + token->m_data.size(), constant);
 
-        return std::make_unique<IntLiteralFactor>(constant);
+        return std::make_unique<IntLiteralExpression>(constant);
     }
 
     if (const auto token = token_stream.try_consume(TokenType::OpenParen)) {
@@ -35,18 +35,17 @@ std::expected<std::unique_ptr<Factor>, std::string> parse_factor(
             return std::unexpected(
                 "Failed to parse factor: expected closing paren");
         }
-        return std::make_unique<ParenGroupFactor>(
-            std::move(child_expr.value()));
+        return child_expr;
     }
 
     const auto handle_unary_op = [&](UnaryOpType op_type)
-        -> std::expected<std::unique_ptr<UnaryOpFactor>, std::string> {
+        -> std::expected<std::unique_ptr<UnaryOpExpression>, std::string> {
         auto child_expr = parse_factor(token_stream);
         if (!child_expr) {
             return std::unexpected(child_expr.error());
         }
-        return std::make_unique<UnaryOpFactor>(std::move(child_expr.value()),
-                                               op_type);
+        return std::make_unique<UnaryOpExpression>(
+            std::move(child_expr.value()), op_type);
     };
 
     if (const auto token = token_stream.try_consume(TokenType::Tilde)) {
@@ -67,7 +66,7 @@ std::expected<std::unique_ptr<Factor>, std::string> parse_factor(
                         .value_or("EOF")));
 }
 
-std::expected<std::unique_ptr<Term>, std::string> parse_term(
+std::expected<std::unique_ptr<Expression>, std::string> parse_term(
     lexer::TokenStream& token_stream) {
     using lexer::TokenType;
 
@@ -76,7 +75,7 @@ std::expected<std::unique_ptr<Term>, std::string> parse_term(
         return std::unexpected(maybe_factor.error());
     }
 
-    std::unique_ptr<Term> factor = std::move(maybe_factor.value());
+    std::unique_ptr<Expression> factor = std::move(maybe_factor.value());
 
     while (token_stream.has_tok(TokenType::Asterisk) ||
            token_stream.has_tok(TokenType::ForwardSlash)) {
@@ -91,7 +90,7 @@ std::expected<std::unique_ptr<Term>, std::string> parse_term(
             return std::unexpected(next_factor.error());
         }
 
-        factor = std::make_unique<BinaryOp>(
+        factor = std::make_unique<BinaryOpExpression>(
             std::move(factor), std::move(next_factor.value()), op_type);
     }
 
@@ -119,7 +118,7 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_expression(
         if (!next_term) {
             return std::unexpected(next_term.error());
         }
-        term = std::make_unique<BinaryOp>(
+        term = std::make_unique<BinaryOpExpression>(
             std::move(term), std::move(next_term.value()), op_type);
     }
 
@@ -198,7 +197,7 @@ std::expected<std::unique_ptr<Program>, std::string> parse_program(
     return std::make_unique<Program>(std::move(function.value()));
 }
 
-[[nodiscard]] std::string BinaryOp::to_string(int indent) const {
+[[nodiscard]] std::string BinaryOpExpression::to_string(int indent) const {
     const auto op_char = [&]() {
         switch (m_op_type) {
             case BinaryOpType::Add:
@@ -220,11 +219,11 @@ std::expected<std::unique_ptr<Program>, std::string> parse_program(
                        m_rhs->to_string(indent + 2));
 }
 
-[[nodiscard]] std::string IntLiteralFactor::to_string(int indent) const {
+[[nodiscard]] std::string IntLiteralExpression::to_string(int indent) const {
     return fmt::format("{}IntLiteral: {}", get_indent(indent), m_literal);
 }
 
-[[nodiscard]] std::string UnaryOpFactor::to_string(int indent) const {
+[[nodiscard]] std::string UnaryOpExpression::to_string(int indent) const {
     const auto op = [&]() {
         switch (m_op_type) {
             case UnaryOpType::LogicalNot:
@@ -237,12 +236,7 @@ std::expected<std::unique_ptr<Program>, std::string> parse_program(
     }();
 
     return fmt::format("{}UnaryOp: {}\n{}", get_indent(indent), op,
-                       m_factor->to_string(indent + 1));
-}
-
-[[nodiscard]] std::string ParenGroupFactor::to_string(int indent) const {
-    return fmt::format("{}ParenGroup\n{}", get_indent(indent),
-                       m_expression->to_string(indent + 1));
+                       m_expr->to_string(indent + 1));
 }
 
 [[nodiscard]] std::string ReturnStatement::to_string(int indent) const {
