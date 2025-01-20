@@ -31,9 +31,14 @@ enum class BinaryOpType {
     GreaterThanOrEqual,
     Equal,
     NotEqual,
+    BitwiseAnd,
     LogicalAnd,
+    BitwiseOr,
     LogicalOr,
     Modulo,
+    BitwiseXor,
+    RightShift,
+    LeftShift
 };
 
 struct AstNode {
@@ -121,6 +126,14 @@ struct Program : public AstNode {
     [[nodiscard]] std::string to_string(int indent) const override;
 };
 
+std::expected<std::unique_ptr<Expression>, std::string>
+parse_bitwise_shift_expr(lexer::TokenStream& token_stream);
+std::expected<std::unique_ptr<Expression>, std::string> parse_bitwise_or_expr(
+    lexer::TokenStream& token_stream);
+std::expected<std::unique_ptr<Expression>, std::string> parse_bitwise_xor_expr(
+    lexer::TokenStream& token_stream);
+std::expected<std::unique_ptr<Expression>, std::string> parse_bitwise_and_expr(
+    lexer::TokenStream& token_stream);
 std::expected<std::unique_ptr<Expression>, std::string> parse_expression(
     lexer::TokenStream& token_stream);
 std::expected<std::unique_ptr<Expression>, std::string> parse_logical_and_expr(
@@ -166,10 +179,12 @@ std::expected<std::unique_ptr<Program>, std::string> parse_program(
 //     P<IntLiteralFactorV>>;
 // using TermV = std::variant<FactorV, P<BinaryOpExpressionV>>;
 // using ExpressionV = std::variant<TermV, P<BinaryOpExpressionV>>;
-// using AstNodeV = std::variant<P<ProgramV>, P<FunctionV>, P<ReturnStatementV>,
-//                               P<BinaryOpExpressionV>, P<ParenGroupFactorV>,
-//                               P<UnaryOpFactorV>, P<IntLiteralFactorV>,
-//                               ExpressionV, TermV, FactorV, StatementV>;
+// using AstNodeV = std::variant<P<ProgramV>, P<FunctionV>,
+// P<ReturnStatementV>,
+//                               P<BinaryOpExpressionV>,
+//                               P<ParenGroupFactorV>, P<UnaryOpFactorV>,
+//                               P<IntLiteralFactorV>, ExpressionV, TermV,
+//                               FactorV, StatementV>;
 //
 // struct IntLiteralFactorV {
 //     int m_literal;
@@ -198,13 +213,15 @@ std::expected<std::unique_ptr<Program>, std::string> parse_program(
 //     BinaryOpType m_op_type;
 //
 //     BinaryOpExpressionV(ExpressionV lhs, TermV rhs, BinaryOpType op_type)
-//         : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)), m_op_type(op_type) {}
+//         : m_lhs(std::move(lhs)), m_rhs(std::move(rhs)),
+//         m_op_type(op_type) {}
 // };
 //
 // struct ReturnStatementV {
 //     ExpressionV m_expr;
 //
-//     explicit ReturnStatementV(ExpressionV expr) : m_expr(std::move(expr)) {}
+//     explicit ReturnStatementV(ExpressionV expr) : m_expr(std::move(expr))
+//     {}
 // };
 // struct FunctionV {
 //     std::string m_name;

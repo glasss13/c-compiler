@@ -22,7 +22,9 @@ enum class TokenType {
     Plus,
     Asterisk,
     ForwardSlash,
-    DoubleAnd,
+    Ampersan,
+    DoubleAmpersan,
+    Or,
     DoubleOr,
     DoubleEqual,
     NotEqual,
@@ -30,7 +32,10 @@ enum class TokenType {
     LessThanOrEqual,
     GreaterThan,
     GreaterThanOrEqual,
+    DoubleGreaterThan,
+    DoubleLessThan,
     Percent,
+    Caret,
 };
 
 struct Token {

@@ -12,44 +12,56 @@ inline std::string get_indent(int level) {
 }
 
 parser::BinaryOpType bin_op_type(lexer::TokenType token) {
+    using lexer::TokenType;
+    using parser::BinaryOpType;
     switch (token) {
-        case lexer::TokenType::Dash:
-            return parser::BinaryOpType::Subtract;
-        case lexer::TokenType::Plus:
-            return parser::BinaryOpType::Add;
-        case lexer::TokenType::Asterisk:
-            return parser::BinaryOpType::Multiply;
-        case lexer::TokenType::ForwardSlash:
-            return parser::BinaryOpType::Divide;
-        case lexer::TokenType::DoubleAnd:
-            return parser::BinaryOpType::LogicalAnd;
-        case lexer::TokenType::DoubleOr:
-            return parser::BinaryOpType::LogicalOr;
-        case lexer::TokenType::DoubleEqual:
-            return parser::BinaryOpType::Equal;
-        case lexer::TokenType::NotEqual:
-            return parser::BinaryOpType::NotEqual;
-        case lexer::TokenType::LessThan:
-            return parser::BinaryOpType::LessThan;
-        case lexer::TokenType::LessThanOrEqual:
-            return parser::BinaryOpType::LessThanOrEqual;
-        case lexer::TokenType::GreaterThan:
-            return parser::BinaryOpType::GreaterThan;
-        case lexer::TokenType::GreaterThanOrEqual:
-            return parser::BinaryOpType::GreaterThanOrEqual;
-        case lexer::TokenType::Percent:
-            return parser::BinaryOpType::Modulo;
-        case lexer::TokenType::OpenBrace:
-        case lexer::TokenType::CloseBrace:
-        case lexer::TokenType::OpenParen:
-        case lexer::TokenType::CloseParen:
-        case lexer::TokenType::Semicolon:
-        case lexer::TokenType::Int:
-        case lexer::TokenType::Return:
-        case lexer::TokenType::Identifier:
-        case lexer::TokenType::IntLiteral:
-        case lexer::TokenType::Bang:
-        case lexer::TokenType::Tilde:
+        case TokenType::Dash:
+            return BinaryOpType::Subtract;
+        case TokenType::Plus:
+            return BinaryOpType::Add;
+        case TokenType::Asterisk:
+            return BinaryOpType::Multiply;
+        case TokenType::ForwardSlash:
+            return BinaryOpType::Divide;
+        case TokenType::Ampersan:
+            return BinaryOpType::BitwiseAnd;
+        case TokenType::DoubleAmpersan:
+            return BinaryOpType::LogicalAnd;
+        case TokenType::Or:
+            return BinaryOpType::BitwiseOr;
+        case TokenType::DoubleOr:
+            return BinaryOpType::LogicalOr;
+        case TokenType::DoubleEqual:
+            return BinaryOpType::Equal;
+        case TokenType::NotEqual:
+            return BinaryOpType::NotEqual;
+        case TokenType::LessThan:
+            return BinaryOpType::LessThan;
+        case TokenType::LessThanOrEqual:
+            return BinaryOpType::LessThanOrEqual;
+        case TokenType::GreaterThan:
+            return BinaryOpType::GreaterThan;
+        case TokenType::GreaterThanOrEqual:
+            return BinaryOpType::GreaterThanOrEqual;
+        case TokenType::Percent:
+            return BinaryOpType::Modulo;
+        case TokenType::Caret:
+            return BinaryOpType::BitwiseXor;
+        case lexer::TokenType::DoubleGreaterThan:
+            return BinaryOpType::RightShift;
+        case lexer::TokenType::DoubleLessThan:
+            return BinaryOpType::LeftShift;
+        case TokenType::OpenBrace:
+        case TokenType::CloseBrace:
+        case TokenType::OpenParen:
+        case TokenType::CloseParen:
+        case TokenType::Semicolon:
+        case TokenType::Int:
+        case TokenType::Return:
+        case TokenType::Identifier:
+        case TokenType::IntLiteral:
+        case TokenType::Bang:
+        case TokenType::Tilde:
             std::unreachable();
     }
 }
@@ -159,7 +171,25 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_expression(
 
 std::expected<std::unique_ptr<Expression>, std::string> parse_logical_and_expr(
     lexer::TokenStream& token_stream) {
-    return parse_expression_t<parse_equality_expression, TokenType::DoubleAnd>(
+    return parse_expression_t<parse_bitwise_or_expr, TokenType::DoubleAmpersan>(
+        token_stream);
+}
+
+std::expected<std::unique_ptr<Expression>, std::string> parse_bitwise_or_expr(
+    lexer::TokenStream& token_stream) {
+    return parse_expression_t<parse_bitwise_xor_expr, TokenType::Or>(
+        token_stream);
+}
+
+std::expected<std::unique_ptr<Expression>, std::string> parse_bitwise_xor_expr(
+    lexer::TokenStream& token_stream) {
+    return parse_expression_t<parse_bitwise_and_expr, TokenType::Caret>(
+        token_stream);
+}
+
+std::expected<std::unique_ptr<Expression>, std::string> parse_bitwise_and_expr(
+    lexer::TokenStream& token_stream) {
+    return parse_expression_t<parse_equality_expression, TokenType::Ampersan>(
         token_stream);
 }
 
@@ -172,9 +202,16 @@ parse_equality_expression(lexer::TokenStream& token_stream) {
 std::expected<std::unique_ptr<Expression>, std::string>
 parse_relational_expression(lexer::TokenStream& token_stream) {
     return parse_expression_t<
-        parse_additive_expression, TokenType::LessThan, TokenType::GreaterThan,
+        parse_bitwise_shift_expr, TokenType::LessThan, TokenType::GreaterThan,
         TokenType::LessThanOrEqual, TokenType::GreaterThanOrEqual>(
         token_stream);
+}
+
+std::expected<std::unique_ptr<Expression>, std::string>
+parse_bitwise_shift_expr(lexer::TokenStream& token_stream) {
+    return parse_expression_t<parse_additive_expression,
+                              TokenType::DoubleLessThan,
+                              TokenType::DoubleGreaterThan>(token_stream);
 }
 
 std::expected<std::unique_ptr<Expression>, std::string>
@@ -284,12 +321,22 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_term(
                 return "=="sv;
             case BinaryOpType::NotEqual:
                 return "!="sv;
+            case BinaryOpType::BitwiseAnd:
+                return "&"sv;
             case BinaryOpType::LogicalAnd:
                 return "&&"sv;
+            case BinaryOpType::BitwiseOr:
+                return "|"sv;
             case BinaryOpType::LogicalOr:
                 return "||"sv;
             case BinaryOpType::Modulo:
                 return "%"sv;
+            case BinaryOpType::BitwiseXor:
+                return "^"sv;
+            case BinaryOpType::RightShift:
+                return ">>"sv;
+            case BinaryOpType::LeftShift:
+                return "<<"sv;
         }
     }();
 

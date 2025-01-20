@@ -69,7 +69,6 @@ namespace codegen {
                 lhs_gen, rhs_gen);
         }
         case parser::BinaryOpType::Subtract:
-            std::cerr << "generating subtract\n";
             return fmt::format(
                 "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nsub w0, "
                 "w1, w0",
@@ -177,6 +176,32 @@ namespace codegen {
                 lhs_gen, clause2_label, end_label, clause2_label, rhs_gen,
                 end_label);
         }
+        case parser::BinaryOpType::BitwiseAnd:
+            return fmt::format(
+                "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nand w0, "
+                "w1, w0",
+                lhs_gen, rhs_gen);
+
+        case parser::BinaryOpType::BitwiseOr:
+            return fmt::format(
+                "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\norr w0, "
+                "w1, w0",
+                lhs_gen, rhs_gen);
+        case parser::BinaryOpType::BitwiseXor:
+            return fmt::format(
+                "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\neor w0, "
+                "w1, w0",
+                lhs_gen, rhs_gen);
+        case parser::BinaryOpType::RightShift:
+            return fmt::format(
+                "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nasr w0, "
+                "w1, w0",
+                lhs_gen, rhs_gen);
+        case parser::BinaryOpType::LeftShift:
+            return fmt::format(
+                "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nlsl w0, "
+                "w1, w0",
+                lhs_gen, rhs_gen);
     }
 }
 
