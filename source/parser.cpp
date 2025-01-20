@@ -57,6 +57,8 @@ parser::BinaryOpType bin_op_type(lexer::TokenType token) {
 
 namespace parser {
 
+using lexer::TokenType;
+
 std::expected<std::unique_ptr<Program>, std::string> parse_program(
     lexer::TokenStream token_stream) {
     auto function = parse_function(token_stream);
@@ -69,8 +71,6 @@ std::expected<std::unique_ptr<Program>, std::string> parse_program(
 
 std::expected<std::unique_ptr<Function>, std::string> parse_function(
     lexer::TokenStream& token_stream) {
-    using lexer::TokenType;
-
     if (!token_stream.consume_if(TokenType::Int)) {
         return std::unexpected(
             "Failed to parse function: malformed return type");
@@ -110,8 +110,6 @@ std::expected<std::unique_ptr<Function>, std::string> parse_function(
 
 std::expected<std::unique_ptr<Statement>, std::string> parse_statement(
     lexer::TokenStream& token_stream) {
-    using lexer::TokenType;
-
     if (!token_stream.consume_if(TokenType::Return)) {
         return std::unexpected(
             "Failed to parse statement: missing return keyword");
@@ -128,122 +126,20 @@ std::expected<std::unique_ptr<Statement>, std::string> parse_statement(
 
     return std::make_unique<ReturnStatement>(std::move(expr.value()));
 }
-std::expected<std::unique_ptr<Expression>, std::string> parse_expression(
+
+template <auto child_parse, lexer::TokenType... Tokens>
+std::expected<std::unique_ptr<Expression>, std::string> parse_expression_t(
     lexer::TokenStream& token_stream) {
-    using lexer::TokenType;
-
-    auto maybe_expr = parse_logical_and_expr(token_stream);
-    if (!maybe_expr) {
-        return std::unexpected(maybe_expr.error());
-    }
-
-    std::unique_ptr<Expression> expr = std::move(*maybe_expr);
-
-    while (token_stream.try_consume(TokenType::DoubleOr)) {
-        auto next_expr = parse_logical_and_expr(token_stream);
-        if (!next_expr) {
-            return std::unexpected(next_expr.error());
-        }
-        expr = std::make_unique<BinaryOpExpression>(
-            std::move(expr), std::move(*next_expr), BinaryOpType::LogicalOr);
-    }
-
-    return expr;
-}
-
-std::expected<std::unique_ptr<Expression>, std::string> parse_logical_and_expr(
-    lexer::TokenStream& token_stream) {
-    using lexer::TokenType;
-
-    auto maybe_expr = parse_equality_expression(token_stream);
-    if (!maybe_expr) {
-        return std::unexpected(maybe_expr.error());
-    }
-
-    std::unique_ptr<Expression> expr = std::move(*maybe_expr);
-
-    while (token_stream.try_consume(TokenType::DoubleAnd)) {
-        auto next_expr = parse_equality_expression(token_stream);
-        if (!next_expr) {
-            return std::unexpected(next_expr.error());
-        }
-        expr = std::make_unique<BinaryOpExpression>(
-            std::move(expr), std::move(*next_expr), BinaryOpType::LogicalAnd);
-    }
-
-    return expr;
-}
-
-std::expected<std::unique_ptr<Expression>, std::string>
-parse_equality_expression(lexer::TokenStream& token_stream) {
-    using lexer::TokenType;
-
-    auto maybe_expr = parse_relational_expression(token_stream);
-    if (!maybe_expr) {
-        return std::unexpected(maybe_expr.error());
-    }
-
-    std::unique_ptr<Expression> expr = std::move(*maybe_expr);
-
-    while (token_stream.has_tok(TokenType::NotEqual) ||
-           token_stream.has_tok(TokenType::DoubleEqual)) {
-        const auto op_token = token_stream.consume();
-
-        auto next_expr = parse_relational_expression(token_stream);
-        if (!next_expr) {
-            return std::unexpected(next_expr.error());
-        }
-        expr = std::make_unique<BinaryOpExpression>(
-            std::move(expr), std::move(*next_expr),
-            bin_op_type(op_token.m_token_type));
-    }
-
-    return expr;
-}
-
-std::expected<std::unique_ptr<Expression>, std::string>
-parse_relational_expression(lexer::TokenStream& token_stream) {
-    using lexer::TokenType;
-
-    auto maybe_expr = parse_additive_expression(token_stream);
-    if (!maybe_expr) {
-        return std::unexpected(maybe_expr.error());
-    }
-
-    std::unique_ptr<Expression> expr = std::move(*maybe_expr);
-
-    while (token_stream.has_tok(TokenType::LessThan) ||
-           token_stream.has_tok(TokenType::GreaterThan) ||
-           token_stream.has_tok(TokenType::LessThanOrEqual) ||
-           token_stream.has_tok(TokenType::GreaterThanOrEqual)) {
-        const auto op_token = token_stream.consume();
-
-        auto next_expr = parse_additive_expression(token_stream);
-        if (!next_expr) {
-            return std::unexpected(next_expr.error());
-        }
-        expr = std::make_unique<BinaryOpExpression>(
-            std::move(expr), std::move(*next_expr),
-            bin_op_type(op_token.m_token_type));
-    }
-    return expr;
-}
-
-std::expected<std::unique_ptr<Expression>, std::string>
-parse_additive_expression(lexer::TokenStream& token_stream) {
-    using lexer::TokenType;
-
-    auto maybe_expr = parse_term(token_stream);
+    auto maybe_expr = child_parse(token_stream);
     if (!maybe_expr) {
         return std::unexpected(maybe_expr.error());
     }
     std::unique_ptr<Expression> expr = std::move(maybe_expr.value());
 
-    while (token_stream.has_tok(TokenType::Plus) ||
-           token_stream.has_tok(TokenType::Dash)) {
+    while ((token_stream.has_tok(Tokens) || ...)) {
         const auto op_token = token_stream.consume();
 
-        auto next_expr = parse_term(token_stream);
+        auto next_expr = child_parse(token_stream);
         if (!next_expr) {
             return std::unexpected(next_expr.error());
         }
@@ -255,10 +151,40 @@ parse_additive_expression(lexer::TokenStream& token_stream) {
     return expr;
 }
 
+std::expected<std::unique_ptr<Expression>, std::string> parse_expression(
+    lexer::TokenStream& token_stream) {
+    return parse_expression_t<parse_logical_and_expr, TokenType::DoubleOr>(
+        token_stream);
+}
+
+std::expected<std::unique_ptr<Expression>, std::string> parse_logical_and_expr(
+    lexer::TokenStream& token_stream) {
+    return parse_expression_t<parse_equality_expression, TokenType::DoubleAnd>(
+        token_stream);
+}
+
+std::expected<std::unique_ptr<Expression>, std::string>
+parse_equality_expression(lexer::TokenStream& token_stream) {
+    return parse_expression_t<parse_relational_expression, TokenType::NotEqual,
+                              TokenType::DoubleEqual>(token_stream);
+}
+
+std::expected<std::unique_ptr<Expression>, std::string>
+parse_relational_expression(lexer::TokenStream& token_stream) {
+    return parse_expression_t<
+        parse_additive_expression, TokenType::LessThan, TokenType::GreaterThan,
+        TokenType::LessThanOrEqual, TokenType::GreaterThanOrEqual>(
+        token_stream);
+}
+
+std::expected<std::unique_ptr<Expression>, std::string>
+parse_additive_expression(lexer::TokenStream& token_stream) {
+    return parse_expression_t<parse_term, TokenType::Plus, TokenType::Dash>(
+        token_stream);
+}
+
 std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
     lexer::TokenStream& token_stream) {
-    using lexer::TokenType;
-
     if (const auto token = token_stream.try_consume(TokenType::IntLiteral)) {
         int constant{};
         std::from_chars(token->m_data.data(),
@@ -309,8 +235,6 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
 
 std::expected<std::unique_ptr<Expression>, std::string> parse_term(
     lexer::TokenStream& token_stream) {
-    using lexer::TokenType;
-
     auto maybe_factor = parse_factor(token_stream);
     if (!maybe_factor) {
         return std::unexpected(maybe_factor.error());
