@@ -40,10 +40,9 @@ TEST_CASE("Lex basic program", "[lex][unit]") {
 
 TEST_CASE("Parse basic program", "[parse][unit]") {
     std::stringstream ss(basic_program);
-    auto lexed = lexer::lex_program(ss);
+    const auto lexed = lexer::lex_program(ss);
 
-    auto it = lexed.begin();
-    const auto parsed = parser::parse_program(it);
+    const auto parsed = parser::parse_program(lexed);
     REQUIRE(parsed.has_value());
 
     REQUIRE(parsed->get()->to_string(0) ==
@@ -55,10 +54,9 @@ TEST_CASE("Parse basic program", "[parse][unit]") {
 
 TEST_CASE("Parse basic error", "[parse][unit]") {
     std::stringstream ss(basic_parse_error);
-    auto lexed = lexer::lex_program(ss);
+    const auto lexed = lexer::lex_program(ss);
 
-    auto it = lexed.begin();
-    const auto parsed = parser::parse_program(it);
+    const auto parsed = parser::parse_program(lexed);
     REQUIRE(!parsed);
     REQUIRE(parsed.error().contains("semicolon"));
 }

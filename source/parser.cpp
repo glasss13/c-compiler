@@ -1,6 +1,5 @@
 #include "parser.hpp"
 
-#include <__expected/unexpect.h>
 #include <fmt/core.h>
 
 #include "lexer.hpp"
@@ -16,77 +15,78 @@ inline std::string get_indent(int level) {
 namespace parser {
 
 std::expected<std::unique_ptr<Factor>, std::string> parse_factor(
-    std::vector<lexer::Token>::iterator& tokens) {
+    lexer::TokenStream& token_stream) {
     using lexer::TokenType;
-    auto token = *tokens;
-    ++tokens;
 
-    switch (token.m_token_type) {
-        case TokenType::IntLiteral: {
-            int constant{};
-            std::from_chars(token.m_data.data(),
-                            token.m_data.data() + token.m_data.size(),
-                            constant);
+    if (const auto token = token_stream.try_consume(TokenType::IntLiteral)) {
+        int constant{};
+        std::from_chars(token->m_data.data(),
+                        token->m_data.data() + token->m_data.size(), constant);
 
-            return std::make_unique<IntLiteralFactor>(constant);
-        }
-        case TokenType::Tilde:
-        case TokenType::Bang:
-        case TokenType::Dash: {
-            auto child_expr = parse_factor(tokens);
-            if (!child_expr) {
-                return std::unexpected(child_expr.error());
-            }
-
-            const auto type = token.m_token_type == TokenType::Tilde
-                                  ? UnaryOpType::BitwiseNot
-                              : token.m_token_type == TokenType::Bang
-                                  ? UnaryOpType::LogicalNot
-                                  : UnaryOpType::Negate;
-
-            return std::make_unique<UnaryOpFactor>(
-                std::move(child_expr.value()), type);
-        }
-        case TokenType::OpenParen: {
-            auto child_expr = parse_expression(tokens);
-            if (!child_expr) {
-                return std::unexpected(child_expr.error());
-            }
-            if (tokens->m_token_type != TokenType::CloseParen) {
-                return std::unexpected(
-                    "Failed to parse factor: expected closing paren");
-            }
-            ++tokens;
-            return std::make_unique<ParenGroupFactor>(
-                std::move(child_expr.value()));
-        }
-        default:
-            return std::unexpected(fmt::format(
-                "Failed to parse factor: expected integer literal or "
-                "unary operator, received: {}",
-                token.m_data));
+        return std::make_unique<IntLiteralFactor>(constant);
     }
+
+    if (const auto token = token_stream.try_consume(TokenType::OpenParen)) {
+        auto child_expr = parse_expression(token_stream);
+        if (!child_expr) {
+            return std::unexpected(child_expr.error());
+        }
+        if (!token_stream.try_consume(TokenType::CloseParen)) {
+            return std::unexpected(
+                "Failed to parse factor: expected closing paren");
+        }
+        return std::make_unique<ParenGroupFactor>(
+            std::move(child_expr.value()));
+    }
+
+    const auto handle_unary_op = [&](UnaryOpType op_type)
+        -> std::expected<std::unique_ptr<UnaryOpFactor>, std::string> {
+        auto child_expr = parse_factor(token_stream);
+        if (!child_expr) {
+            return std::unexpected(child_expr.error());
+        }
+        return std::make_unique<UnaryOpFactor>(std::move(child_expr.value()),
+                                               op_type);
+    };
+
+    if (const auto token = token_stream.try_consume(TokenType::Tilde)) {
+        return handle_unary_op(UnaryOpType::BitwiseNot);
+    }
+    if (const auto token = token_stream.try_consume(TokenType::Bang)) {
+        return handle_unary_op(UnaryOpType::LogicalNot);
+    }
+    if (const auto token = token_stream.try_consume(TokenType::Dash)) {
+        return handle_unary_op(UnaryOpType::Negate);
+    }
+
+    return std::unexpected(
+        fmt::format("Failed to parse factor: expected integer literal or "
+                    "unary operator, found: {}",
+                    token_stream.peek()
+                        .transform([](const auto& s) { return s.m_data; })
+                        .value_or("EOF")));
 }
 
 std::expected<std::unique_ptr<Term>, std::string> parse_term(
-    std::vector<lexer::Token>::iterator& tokens) {
+    lexer::TokenStream& token_stream) {
     using lexer::TokenType;
 
-    auto maybe_factor = parse_factor(tokens);
+    auto maybe_factor = parse_factor(token_stream);
     if (!maybe_factor) {
         return std::unexpected(maybe_factor.error());
     }
 
     std::unique_ptr<Term> factor = std::move(maybe_factor.value());
 
-    while (tokens->m_token_type == TokenType::Asterisk ||
-           tokens->m_token_type == TokenType::ForwardSlash) {
-        auto op_type = tokens->m_token_type == TokenType::Asterisk
+    while (token_stream.has_tok(TokenType::Asterisk) ||
+           token_stream.has_tok(TokenType::ForwardSlash)) {
+        const auto op_token = token_stream.consume();
+
+        auto op_type = op_token.m_token_type == TokenType::Asterisk
                            ? BinaryOpType::Multiply
                            : BinaryOpType::Divide;
-        ++tokens;
 
-        auto next_factor = parse_factor(tokens);
+        auto next_factor = parse_factor(token_stream);
         if (!next_factor) {
             return std::unexpected(next_factor.error());
         }
@@ -99,23 +99,23 @@ std::expected<std::unique_ptr<Term>, std::string> parse_term(
 }
 
 std::expected<std::unique_ptr<Expression>, std::string> parse_expression(
-    std::vector<lexer::Token>::iterator& tokens) {
+    lexer::TokenStream& token_stream) {
     using lexer::TokenType;
 
-    auto maybe_term = parse_term(tokens);
+    auto maybe_term = parse_term(token_stream);
     if (!maybe_term) {
         return std::unexpected(maybe_term.error());
     }
     std::unique_ptr<Expression> term = std::move(maybe_term.value());
 
-    while (tokens->m_token_type == TokenType::Plus ||
-           tokens->m_token_type == TokenType::Dash) {
-        auto op_type = tokens->m_token_type == TokenType::Plus
-                           ? BinaryOpType::Add
-                           : BinaryOpType::Subtract;
-        ++tokens;
+    while (token_stream.has_tok(TokenType::Plus) ||
+           token_stream.has_tok(TokenType::Dash)) {
+        const auto op_token = token_stream.consume();
+        const auto op_type = op_token.m_token_type == TokenType::Plus
+                                 ? BinaryOpType::Add
+                                 : BinaryOpType::Subtract;
 
-        auto next_term = parse_term(tokens);
+        auto next_term = parse_term(token_stream);
         if (!next_term) {
             return std::unexpected(next_term.error());
         }
@@ -127,73 +127,70 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_expression(
 }
 
 std::expected<std::unique_ptr<Statement>, std::string> parse_statement(
-    std::vector<lexer::Token>::iterator& tokens) {
-    if (tokens->m_token_type != lexer::TokenType::Return) {
+    lexer::TokenStream& token_stream) {
+    using lexer::TokenType;
+
+    if (!token_stream.consume_if(TokenType::Return)) {
         return std::unexpected(
             "Failed to parse statement: missing return keyword");
     }
-    ++tokens;
-    auto expr = parse_expression(tokens);
+
+    auto expr = parse_expression(token_stream);
     if (!expr) {
         return std::unexpected(expr.error());
     }
 
-    if (tokens->m_token_type != lexer::TokenType::Semicolon) {
+    if (!token_stream.consume_if(TokenType::Semicolon)) {
         return std::unexpected("Failed to parse statement: missing semicolon");
     }
-    ++tokens;
 
     return std::make_unique<ReturnStatement>(std::move(expr.value()));
 }
 
 std::expected<std::unique_ptr<Function>, std::string> parse_function(
-    std::vector<lexer::Token>::iterator& tokens) {
-    if (tokens->m_token_type != lexer::TokenType::Int) {
+    lexer::TokenStream& token_stream) {
+    using lexer::TokenType;
+
+    if (!token_stream.consume_if(TokenType::Int)) {
         return std::unexpected(
             "Failed to parse function: malformed return type");
     }
-    ++tokens;
 
-    if (tokens->m_token_type != lexer::TokenType::Identifier) {
-        return std::unexpected("Failed to parse function: malformed name");
+    const auto id_token = token_stream.try_consume(TokenType::Identifier);
+    if (!id_token) {
+        return std::unexpected(
+            "Failed to parse function: malformed identifier");
     }
-    auto name = tokens->m_data;
-    ++tokens;
 
-    if (tokens->m_token_type != lexer::TokenType::OpenParen) {
+    if (!token_stream.consume_if(TokenType::OpenParen)) {
         return std::unexpected("Failed to parse function: missing open paren");
     }
-    ++tokens;
-
-    if (tokens->m_token_type != lexer::TokenType::CloseParen) {
+    if (!token_stream.consume_if(TokenType::CloseParen)) {
         return std::unexpected(
             "Failed to parse function: missing closing paren");
     }
-    ++tokens;
 
-    if (tokens->m_token_type != lexer::TokenType::OpenBrace) {
+    if (!token_stream.consume_if(TokenType::OpenBrace)) {
         return std::unexpected("Failed to parse function: missing open brace");
     }
-    ++tokens;
 
-    auto statement = parse_statement(tokens);
-
+    auto statement = parse_statement(token_stream);
     if (!statement) {
         return std::unexpected(statement.error());
     }
 
-    if (tokens->m_token_type != lexer::TokenType::CloseBrace) {
+    if (!token_stream.consume_if(TokenType::CloseBrace)) {
         return std::unexpected(
             "Failed to parse function: missing closing brace");
     }
-    ++tokens;
 
-    return std::make_unique<Function>(name, std::move(statement.value()));
+    return std::make_unique<Function>(id_token->m_data,
+                                      std::move(statement.value()));
 }
 
 std::expected<std::unique_ptr<Program>, std::string> parse_program(
-    std::vector<lexer::Token>::iterator& tokens) {
-    auto function = parse_function(tokens);
+    lexer::TokenStream token_stream) {
+    auto function = parse_function(token_stream);
     if (!function) {
         return std::unexpected(function.error());
     }

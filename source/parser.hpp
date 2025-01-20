@@ -122,22 +122,22 @@ struct Program : public AstNode {
 };
 
 std::expected<std::unique_ptr<Factor>, std::string> parse_factor(
-    std::vector<lexer::Token>::iterator& tokens);
+    lexer::TokenStream& token_stream);
 
 std::expected<std::unique_ptr<Term>, std::string> parse_term(
-    std::vector<lexer::Token>::iterator& tokens);
+    lexer::TokenStream& token_stream);
 
 std::expected<std::unique_ptr<Expression>, std::string> parse_expression(
-    std::vector<lexer::Token>::iterator& tokens);
+    lexer::TokenStream& token_stream);
 
 std::expected<std::unique_ptr<Statement>, std::string> parse_statement(
-    std::vector<lexer::Token>::iterator& tokens);
+    lexer::TokenStream& token_stream);
 
 std::expected<std::unique_ptr<Function>, std::string> parse_function(
-    std::vector<lexer::Token>::iterator& tokens);
+    lexer::TokenStream& token_stream);
 
 std::expected<std::unique_ptr<Program>, std::string> parse_program(
-    std::vector<lexer::Token>::iterator& tokens);
+    lexer::TokenStream token_stream);
 
 // struct ProgramV;
 // struct FunctionV;

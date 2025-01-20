@@ -13,12 +13,40 @@ bool is_digit(auto c) { return static_cast<bool>(std::isdigit(c)); }
 
 namespace lexer {
 
-[[nodiscard]] std::vector<Token> lex_program(const std::string& src) {
+[[nodiscard]] bool TokenStream::has_tok(lexer::TokenType token) const {
+    return m_tokens[m_idx].m_token_type == token;
+}
+
+bool TokenStream::consume_if(lexer::TokenType token) {
+    if (m_tokens[m_idx].m_token_type == token) {
+        ++m_idx;
+        return true;
+    }
+    return false;
+}
+[[nodiscard]] std::optional<Token> TokenStream::peek(size_t lookahead) const {
+    if (m_idx + lookahead >= m_tokens.size()) {
+        return std::nullopt;
+    }
+
+    return m_tokens[m_idx + lookahead];
+}
+
+std::optional<Token> TokenStream::try_consume(lexer::TokenType token) {
+    if (m_tokens[m_idx].m_token_type == token) {
+        return m_tokens[m_idx++];
+    }
+    return std::nullopt;
+}
+
+Token TokenStream::consume() { return m_tokens[m_idx++]; }
+
+[[nodiscard]] TokenStream lex_program(const std::string& src) {
     std::stringstream ss(src);
     return lex_program(ss);
 }
 
-[[nodiscard]] std::vector<Token> lex_program(std::istream& istream) {
+[[nodiscard]] TokenStream lex_program(std::istream& istream) {
     using namespace std::literals;
     namespace ranges = std::ranges;
 
@@ -83,6 +111,6 @@ namespace lexer {
         }
     }
 
-    return out;
+    return TokenStream(out);
 }
 }  // namespace lexer

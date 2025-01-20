@@ -28,9 +28,8 @@ TEST_CASE("Compile and check return codes",
                                       std::istreambuf_iterator<char>()};
 
             std::stringstream ss(file_contents);
-            auto lexed = lexer::lex_program(ss);
-            auto it = lexed.begin();
-            const auto parsed_ast = parser::parse_program(it);
+            const auto lexed = lexer::lex_program(ss);
+            const auto parsed_ast = parser::parse_program(lexed);
             REQUIRE(parsed_ast);
             auto codegen = codegen::codegen_program(**parsed_ast);
 
