@@ -46,7 +46,7 @@ Token TokenStream::consume() { return m_tokens[m_idx++]; }
     return lex_program(ss);
 }
 
-[[nodiscard]] TokenStream lex_program(std::istream& istream) {
+[[nodiscard]] TokenStream lex_program(std::istream& istream) {  // NOLINT
     using namespace std::literals;
     namespace ranges = std::ranges;
 
@@ -88,7 +88,7 @@ Token TokenStream::consume() { return m_tokens[m_idx++]; }
         } else if (cur_token == "~"sv) {
             out.emplace_back(TokenType::Tilde, std::move(cur_token));
             cur_token.clear();
-        } else if (cur_token == "!"sv) {
+        } else if (cur_token == "!"sv && istream.peek() != '=') {
             out.emplace_back(TokenType::Bang, std::move(cur_token));
             cur_token.clear();
         } else if (cur_token == "+"sv) {
@@ -99,6 +99,31 @@ Token TokenStream::consume() { return m_tokens[m_idx++]; }
             cur_token.clear();
         } else if (cur_token == "/"sv) {
             out.emplace_back(TokenType::ForwardSlash, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "&&"sv) {
+            out.emplace_back(TokenType::DoubleAnd, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "||"sv) {
+            out.emplace_back(TokenType::DoubleOr, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "=="sv) {
+            out.emplace_back(TokenType::DoubleEqual, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "!=") {
+            out.emplace_back(TokenType::NotEqual, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "<"sv && istream.peek() != '=') {
+            out.emplace_back(TokenType::LessThan, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "<="sv) {
+            out.emplace_back(TokenType::LessThanOrEqual, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == ">"sv && istream.peek() != '=') {
+            out.emplace_back(TokenType::GreaterThan, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == ">="sv) {
+            out.emplace_back(TokenType::GreaterThanOrEqual,
+                             std::move(cur_token));
             cur_token.clear();
         } else if (!is_digit(istream.peek()) &&
                    ranges::all_of(cur_token, is_digit<char>)) {

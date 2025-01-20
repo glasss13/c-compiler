@@ -10,11 +10,12 @@
 namespace c_compiler {
 std::expected<std::string, std::string> compile_code(
     const std::string& program) {
-    auto lexed = lexer::lex_program(program);
-    auto parsed = parser::parse_program(lexed);
+    const auto lexed = lexer::lex_program(program);
+    const auto parsed = parser::parse_program(lexed);
     if (!parsed) {
         return std::unexpected(parsed.error());
     }
-    return codegen::codegen_program(**parsed);
+    const auto generator = codegen::AArch64Generator();
+    return generator.codegen_program(**parsed);
 }
 }  // namespace c_compiler

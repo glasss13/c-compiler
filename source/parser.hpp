@@ -25,6 +25,14 @@ enum class BinaryOpType {
     Subtract,
     Multiply,
     Divide,
+    LessThan,
+    GreaterThan,
+    LessThanOrEqual,
+    GreaterThanOrEqual,
+    Equal,
+    NotEqual,
+    LogicalAnd,
+    LogicalOr,
 };
 
 struct AstNode {
@@ -112,14 +120,22 @@ struct Program : public AstNode {
     [[nodiscard]] std::string to_string(int indent) const override;
 };
 
+std::expected<std::unique_ptr<Expression>, std::string> parse_expression(
+    lexer::TokenStream& token_stream);
+std::expected<std::unique_ptr<Expression>, std::string> parse_logical_and_expr(
+    lexer::TokenStream& token_stream);
+std::expected<std::unique_ptr<Expression>, std::string>
+parse_equality_expression(lexer::TokenStream& token_stream);
+std::expected<std::unique_ptr<Expression>, std::string>
+parse_relational_expression(lexer::TokenStream& token_stream);
 std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
     lexer::TokenStream& token_stream);
 
 std::expected<std::unique_ptr<Expression>, std::string> parse_term(
     lexer::TokenStream& token_stream);
 
-std::expected<std::unique_ptr<Expression>, std::string> parse_expression(
-    lexer::TokenStream& token_stream);
+std::expected<std::unique_ptr<Expression>, std::string>
+parse_additive_expression(lexer::TokenStream& token_stream);
 
 std::expected<std::unique_ptr<Statement>, std::string> parse_statement(
     lexer::TokenStream& token_stream);

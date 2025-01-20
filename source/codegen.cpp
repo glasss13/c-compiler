@@ -4,18 +4,24 @@
 
 #include "parser.hpp"
 
+namespace {
+std::string label(int label_idx) { return fmt::format("L{}", label_idx); }
+}  // namespace
+
 namespace codegen {
 
-[[nodiscard]] std::string codegen_program(const parser::Program& program) {
+[[nodiscard]] std::string AArch64Generator::codegen_program(
+    const parser::Program& program) const {
     return codegen_function(*program.m_function);
 }
 
-[[nodiscard]] std::string codegen_function(const parser::Function& function) {
+[[nodiscard]] std::string AArch64Generator::codegen_function(
+    const parser::Function& function) const {
     return fmt::format(".globl _{}\n_{}:\n{}", function.m_name, function.m_name,
                        codegen_statement(*function.m_statement));
 }
-[[nodiscard]] std::string codegen_statement(
-    const parser::Statement& statement) {
+[[nodiscard]] std::string AArch64Generator::codegen_statement(
+    const parser::Statement& statement) const {
     switch (statement.m_statement_type) {
         case parser::StatmentType::Return:
             const auto& ret_statement =
@@ -26,7 +32,8 @@ namespace codegen {
     }
 }
 
-[[nodiscard]] std::string codegen_expression(const parser::Expression& expr) {
+[[nodiscard]] std::string AArch64Generator::codegen_expression(
+    const parser::Expression& expr) const {
     switch (expr.m_expr_type) {
         case parser::ExpressionType::BinaryOp:
             return codegen_binary_op(
@@ -44,8 +51,8 @@ namespace codegen {
     }
 }
 
-[[nodiscard]] std::string codegen_binary_op(
-    const parser::BinaryOpExpression& expr) {
+[[nodiscard]] std::string AArch64Generator::codegen_binary_op(
+    const parser::BinaryOpExpression& expr) const {
     const auto lhs_gen = codegen_expression(*expr.m_lhs);
     const auto rhs_gen = codegen_expression(*expr.m_rhs);
     switch (expr.m_op_type) {
@@ -72,11 +79,99 @@ namespace codegen {
                 "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nsdiv w0, "
                 "w1, w0",
                 lhs_gen, rhs_gen);
+        case parser::BinaryOpType::Equal:
+            return fmt::format(
+                "{}\n"
+                "str w0, [sp, #-16]!\n"
+                "{}\n"
+                "ldr w1, [sp], #16\n"
+                "cmp w1, w0\n"
+                "cset w0, eq\n",
+                lhs_gen, rhs_gen);
+        case parser::BinaryOpType::LessThan:
+            return fmt::format(
+                "{}\n"
+                "str w0, [sp, #-16]!\n"
+                "{}\n"
+                "ldr w1, [sp], #16\n"
+                "cmp w1, w0\n"
+                "cset w0, lt\n",
+                lhs_gen, rhs_gen);
+        case parser::BinaryOpType::GreaterThan:
+            return fmt::format(
+                "{}\n"
+                "str w0, [sp, #-16]!\n"
+                "{}\n"
+                "ldr w1, [sp], #16\n"
+                "cmp w1, w0\n"
+                "cset w0, gt\n",
+                lhs_gen, rhs_gen);
+        case parser::BinaryOpType::LessThanOrEqual:
+            return fmt::format(
+                "{}\n"
+                "str w0, [sp, #-16]!\n"
+                "{}\n"
+                "ldr w1, [sp], #16\n"
+                "cmp w1, w0\n"
+                "cset w0, le\n",
+                lhs_gen, rhs_gen);
+        case parser::BinaryOpType::GreaterThanOrEqual:
+            return fmt::format(
+                "{}\n"
+                "str w0, [sp, #-16]!\n"
+                "{}\n"
+                "ldr w1, [sp], #16\n"
+                "cmp w1, w0\n"
+                "cset w0, ge\n",
+                lhs_gen, rhs_gen);
+        case parser::BinaryOpType::NotEqual:
+            return fmt::format(
+                "{}\n"
+                "str w0, [sp, #-16]!\n"
+                "{}\n"
+                "ldr w1, [sp], #16\n"
+                "cmp w1, w0\n"
+                "cset w0, ne\n",
+                lhs_gen, rhs_gen);
+        case parser::BinaryOpType::LogicalAnd: {
+            const auto clause2_label = label(get_label_idx());
+            const auto end_label = label(get_label_idx());
+
+            return fmt::format(
+                "{}\n"
+                "cbnz w0, {}\n"
+                "b {}\n"
+                "{}:\n"
+                "{}\n"
+                "cmp w0, 0\n"
+                "cset w0, ne\n"
+                "{}:\n",
+                lhs_gen, clause2_label, end_label, clause2_label, rhs_gen,
+                end_label);
+        }
+
+        case parser::BinaryOpType::LogicalOr: {
+            const auto clause2_label = label(get_label_idx());
+            const auto end_label = label(get_label_idx());
+
+            return fmt::format(
+                "{}\n"
+                "cbz w0, {}\n"
+                "mov w0, #1\n"
+                "b {}\n"
+                "{}:\n"
+                "{}\n"
+                "cmp w0, 0\n"
+                "cset w0, ne\n"
+                "{}:\n",
+                lhs_gen, clause2_label, end_label, clause2_label, rhs_gen,
+                end_label);
+        }
     }
 }
 
-[[nodiscard]] std::string codegen_unary_op(
-    const parser::UnaryOpExpression& unary_op) {
+[[nodiscard]] std::string AArch64Generator::codegen_unary_op(
+    const parser::UnaryOpExpression& unary_op) const {
     switch (unary_op.m_op_type) {
         case parser::UnaryOpType::LogicalNot:
             return fmt::format("{}\ncmp w0, 0\ncset w0, eq",
