@@ -179,4 +179,13 @@ TEST_CASE("Variables", "[integration]") {
     const auto status_code = compile_and_run(*assembly, true);
     REQUIRE(status_code == 25);
 }
+
+TEST_CASE("Main returns 0 by default", "[integration]") {
+    std::string program = "int main() { int x = 4; int y = 5; }";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 0);
+}
+
 // NOLINTEND

@@ -20,7 +20,11 @@ namespace codegen {
     enter_scope(m_scope->create_child_scope());
 
     std::string statements;
+    bool has_return = false;
     for (const auto& statement : function.m_statements) {
+        if (statement->m_statement_type == parser::StatementType::Return) {
+            has_return = true;
+        }
         statements += codegen_statement(*statement);
         statements += '\n';
     }
@@ -32,6 +36,18 @@ namespace codegen {
         "mov x29, sp\n"
         "{}",
         function.m_name, function.m_name, statements);
+
+    // C standard says that main function should return 0 even if no
+    // return statement is present.
+    // If the function isn't the main function, using the return value is
+    // UB. So lets just return 0 either way.
+    if (!has_return) {
+        out +=
+            "\nmov  w0, #0\n"
+            "mov sp, x29\n"
+            "ldp x29, x30, [sp], #16\n"
+            "ret";
+    }
 
     return out;
 }
