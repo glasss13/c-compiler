@@ -170,4 +170,13 @@ TEST_CASE("Left Shift", "[integration]") {
     const auto status_code = compile_and_run(*assembly, true);
     REQUIRE(status_code == 80);
 }
+
+TEST_CASE("Variables", "[integration]") {
+    std::string program =
+        "int main() { int x = 4; int y = 5; return x * y + y; }";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 25);
+}
 // NOLINTEND

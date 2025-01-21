@@ -37,7 +37,6 @@ TEST_CASE("lex and parse invalid programs", "[lex][parse][integration]") {
 
             const auto lexed = lexer::lex_program(file);
             const auto parsed = parser::parse_program(lexed);
-            std::cout << entry.path() << '\n';
 
             for (auto l : lexed) {
                 std::cout << l.m_data << '\n';

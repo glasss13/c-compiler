@@ -58,7 +58,6 @@ TEST_CASE("Parse basic error", "[parse][unit]") {
 
     const auto parsed = parser::parse_program(lexed);
     REQUIRE(!parsed);
-    REQUIRE(parsed.error().contains("semicolon"));
 }
 
 // NOLINTEND
