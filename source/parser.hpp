@@ -13,8 +13,14 @@
 
 namespace parser {
 
-enum class StatmentType { Return };
-enum class ExpressionType { BinaryOp, UnaryOp, IntLiteral };
+enum class StatementType { Return, Declaration, Expression };
+enum class ExpressionType {
+    BinaryOp,
+    UnaryOp,
+    IntLiteral,
+    Assignment,
+    VariableRef,
+};
 enum class UnaryOpType {
     LogicalNot,
     BitwiseNot,
@@ -52,9 +58,9 @@ struct AstNode {
     virtual std::string to_string(int indent) const = 0;
 };
 struct Statement : public AstNode {
-    StatmentType m_statement_type;
+    StatementType m_statement_type;
 
-    explicit Statement(StatmentType type) : m_statement_type(type) {}
+    explicit Statement(StatementType type) : m_statement_type(type) {}
 };
 struct Expression : public AstNode {
     ExpressionType m_expr_type;
@@ -98,21 +104,65 @@ struct UnaryOpExpression : public Expression {
     [[nodiscard]] std::string to_string(int indent) const override;
 };
 
+struct AssignmentExpression : public Expression {
+    std::string m_var_name;
+    std::unique_ptr<Expression> m_expr;
+
+    AssignmentExpression(std::string var_name, std::unique_ptr<Expression> expr)
+        : Expression(ExpressionType::Assignment),
+          m_var_name(std::move(var_name)),
+          m_expr(std::move(expr)) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
+struct VariableRefExpression : public Expression {
+    std::string m_var_name;
+
+    explicit VariableRefExpression(std::string var_name)
+        : Expression(ExpressionType::VariableRef),
+          m_var_name(std::move(var_name)) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
 struct ReturnStatement : public Statement {
     std::unique_ptr<Expression> m_expr;
 
     explicit ReturnStatement(std::unique_ptr<Expression> expr)
-        : Statement(StatmentType::Return), m_expr(std::move(expr)) {}
+        : Statement(StatementType::Return), m_expr(std::move(expr)) {}
 
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
+struct DeclarationStatement : public Statement {
+    std::string m_var_name;
+    std::unique_ptr<Expression> m_initializer;
+
+    explicit DeclarationStatement(
+        std::string var_name, std::unique_ptr<Expression> initializer = nullptr)
+        : Statement(StatementType::Declaration),
+          m_var_name(std::move(var_name)),
+          m_initializer(std::move(initializer)) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
+struct ExpressionStatement : public Statement {
+    std::unique_ptr<Expression> m_expr;
+
+    explicit ExpressionStatement(std::unique_ptr<Expression> expr)
+        : Statement(StatementType::Expression), m_expr(std::move(expr)) {}
     [[nodiscard]] std::string to_string(int indent) const override;
 };
 
 struct Function : public AstNode {
     std::string m_name;
-    std::unique_ptr<Statement> m_statement;
+    std::vector<std::unique_ptr<Statement>> m_statements;
 
-    Function(std::string name, std::unique_ptr<Statement> statement)
-        : m_name(std::move(name)), m_statement(std::move(statement)) {}
+    Function(std::string name,
+             std::vector<std::unique_ptr<Statement>> statements)
+        : m_name(std::move(name)), m_statements(std::move(statements)) {}
 
     [[nodiscard]] std::string to_string(int indent) const override;
 };
@@ -126,6 +176,8 @@ struct Program : public AstNode {
     [[nodiscard]] std::string to_string(int indent) const override;
 };
 
+std::expected<std::unique_ptr<Expression>, std::string> parse_logical_or_expr(
+    lexer::TokenStream& token_stream);
 std::expected<std::unique_ptr<Expression>, std::string>
 parse_bitwise_shift_expr(lexer::TokenStream& token_stream);
 std::expected<std::unique_ptr<Expression>, std::string> parse_bitwise_or_expr(

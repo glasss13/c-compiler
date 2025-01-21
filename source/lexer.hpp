@@ -1,5 +1,7 @@
 #pragma once
 
+#include <fmt/format.h>
+
 #include <ranges>
 #include <sstream>
 #include <string>
@@ -26,6 +28,7 @@ enum class TokenType {
     DoubleAmpersan,
     Or,
     DoubleOr,
+    Equal,
     DoubleEqual,
     NotEqual,
     LessThan,
@@ -44,6 +47,71 @@ struct Token {
 
     Token(TokenType token_type, std::string data)
         : m_token_type(token_type), m_data(std::move(data)) {}
+
+    std::string to_string() const {
+        switch (m_token_type) {
+            case TokenType::OpenBrace:
+                return "OpenBrace";
+            case TokenType::CloseBrace:
+                return "CloseBrace";
+            case TokenType::OpenParen:
+                return "OpenParen";
+            case TokenType::CloseParen:
+                return "CloseParen";
+            case TokenType::Semicolon:
+                return "Semicolon";
+            case TokenType::Int:
+                return "Int";
+            case TokenType::Return:
+                return "Return";
+            case TokenType::Identifier:
+                return fmt::format("Identifier({})", m_data);
+            case TokenType::IntLiteral:
+                return fmt::format("IntLiteral({})", m_data);
+            case TokenType::Dash:
+                return "Dash";
+            case TokenType::Tilde:
+                return "Tilde";
+            case TokenType::Bang:
+                return "Bang";
+            case TokenType::Plus:
+                return "Plus";
+            case TokenType::Asterisk:
+                return "Asterisk";
+            case TokenType::ForwardSlash:
+                return "ForwardSlash";
+            case TokenType::Ampersan:
+                return "Ampersan";
+            case TokenType::DoubleAmpersan:
+                return "DoubleAmpersan";
+            case TokenType::Or:
+                return "Or";
+            case TokenType::DoubleOr:
+                return "DoubleOr";
+            case TokenType::Equal:
+                return "Equal";
+            case TokenType::DoubleEqual:
+                return "DoubleEqual";
+            case TokenType::NotEqual:
+                return "NotEqual";
+            case TokenType::LessThan:
+                return "LessThan";
+            case TokenType::LessThanOrEqual:
+                return "LessThanOrEqual";
+            case TokenType::GreaterThan:
+                return "GreaterThan";
+            case TokenType::GreaterThanOrEqual:
+                return "GreaterThanOrEqual";
+            case TokenType::DoubleGreaterThan:
+                return "DoubleGreaterThan";
+            case TokenType::DoubleLessThan:
+                return "DoubleLessThan";
+            case TokenType::Percent:
+                return "Percent";
+            case TokenType::Caret:
+                return "Caret";
+        }
+    }
 };
 
 class TokenStream {
@@ -61,6 +129,8 @@ public:
     [[nodiscard]] const auto& operator[](size_t idx) const {
         return m_tokens.at(idx);
     }
+    [[nodiscard]] size_t save() const { return m_idx; }
+    void restore(size_t idx) { m_idx = idx; }
 
 private:
     std::vector<Token> m_tokens;

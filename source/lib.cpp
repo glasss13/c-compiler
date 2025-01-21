@@ -15,7 +15,7 @@ std::expected<std::string, std::string> compile_code(
     if (!parsed) {
         return std::unexpected(parsed.error());
     }
-    const auto generator = codegen::AArch64Generator();
+    auto generator = codegen::AArch64Generator();
     return generator.codegen_program(**parsed);
 }
 }  // namespace c_compiler

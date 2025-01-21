@@ -11,29 +11,77 @@ std::string label(int label_idx) { return fmt::format("L{}", label_idx); }
 namespace codegen {
 
 [[nodiscard]] std::string AArch64Generator::codegen_program(
-    const parser::Program& program) const {
+    const parser::Program& program) {
     return codegen_function(*program.m_function);
 }
 
 [[nodiscard]] std::string AArch64Generator::codegen_function(
-    const parser::Function& function) const {
-    return fmt::format(".globl _{}\n_{}:\n{}", function.m_name, function.m_name,
-                       codegen_statement(*function.m_statement));
+    const parser::Function& function) {
+    enter_scope(m_scope->create_child_scope());
+
+    std::string statements;
+    for (const auto& statement : function.m_statements) {
+        statements += codegen_statement(*statement);
+        statements += '\n';
+    }
+
+    auto out = fmt::format(
+        ".globl _{}\n"
+        "_{}:\n"
+        "stp x29, x30, [sp, #-16]!\n"
+        "mov x29, sp\n"
+        "{}",
+        function.m_name, function.m_name, statements);
+
+    return out;
 }
 [[nodiscard]] std::string AArch64Generator::codegen_statement(
-    const parser::Statement& statement) const {
+    const parser::Statement& statement) {
     switch (statement.m_statement_type) {
-        case parser::StatmentType::Return:
+        case parser::StatementType::Return: {
             const auto& ret_statement =
                 dynamic_cast<const parser::ReturnStatement&>(statement);
 
-            return fmt::format("{}\nret",
-                               codegen_expression(*ret_statement.m_expr));
+            return fmt::format(
+                "{}\n"
+                "mov sp, x29\n"
+                "ldp x29, x30, [sp], #16\n"
+                "ret",
+                codegen_expression(*ret_statement.m_expr));
+        }
+        case parser::StatementType::Declaration: {
+            const auto& dec_statement =
+                dynamic_cast<const parser::DeclarationStatement&>(statement);
+
+            // TODO: clean this up
+            const auto base_offset = m_scope->base_offset();
+            enter_scope(m_scope->add_var(dec_statement.m_var_name));
+
+            auto declaration = fmt::format("sub sp, sp, #16");
+
+            std::string initializer;
+            if (dec_statement.m_initializer) {
+                initializer = codegen_expression(*dec_statement.m_initializer);
+            } else {
+                initializer = fmt::format("mov w0, #0");
+            }
+            return fmt::format(
+                "{}\n"
+                "{}\n"
+                "str w0, [x29, #{}]",
+                declaration, initializer, base_offset);
+        }
+        case parser::StatementType::Expression: {
+            const auto& expr_statement =
+                dynamic_cast<const parser::ExpressionStatement&>(statement);
+
+            return codegen_expression(*expr_statement.m_expr);
+        }
     }
 }
 
 [[nodiscard]] std::string AArch64Generator::codegen_expression(
-    const parser::Expression& expr) const {
+    const parser::Expression& expr) {
     switch (expr.m_expr_type) {
         case parser::ExpressionType::BinaryOp:
             return codegen_binary_op(
@@ -48,34 +96,73 @@ namespace codegen {
                 dynamic_cast<const parser::IntLiteralExpression&>(expr);
             return fmt::format("mov w0, #{}", literal_expr.m_literal);
         }
+        case parser::ExpressionType::Assignment: {
+            const auto& assignment_expr =
+                dynamic_cast<const parser::AssignmentExpression&>(expr);
+
+            const auto base_offset =
+                m_scope->lookup(assignment_expr.m_var_name);
+            if (!base_offset) {
+                std::cerr << "Unknown variable: " << assignment_expr.m_var_name
+                          << '\n';
+                std::terminate();
+            }
+
+            return fmt::format(
+                "{}\n"
+                "str w0, [x29, #{}]",
+                codegen_expression(*assignment_expr.m_expr), *base_offset);
+        }
+
+        case parser::ExpressionType::VariableRef: {
+            const auto& ref_expression =
+                dynamic_cast<const parser::VariableRefExpression&>(expr);
+
+            const auto base_offset = m_scope->lookup(ref_expression.m_var_name);
+            if (!base_offset) {
+                std::cerr << "Unknown variable: " << ref_expression.m_var_name
+                          << '\n';
+                std::terminate();
+            }
+
+            return fmt::format("ldr w0, [x29, #{}]", *base_offset);
+        }
     }
 }
 
 [[nodiscard]] std::string AArch64Generator::codegen_binary_op(
-    const parser::BinaryOpExpression& expr) const {
+    const parser::BinaryOpExpression& expr) {
     const auto lhs_gen = codegen_expression(*expr.m_lhs);
     const auto rhs_gen = codegen_expression(*expr.m_rhs);
     switch (expr.m_op_type) {
         case parser::BinaryOpType::Add: {
             return fmt::format(
-                "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nadd w0, "
+                "{}\nstr w0, [sp, "
+                "#-16]!\n{}\nldr w1, "
+                "[sp], #16\nadd w0, "
                 "w0, w1",
                 lhs_gen, rhs_gen);
         }
         case parser::BinaryOpType::Multiply: {
             return fmt::format(
-                "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nmul w0, "
+                "{}\nstr w0, [sp, "
+                "#-16]!\n{}\nldr w1, "
+                "[sp], #16\nmul w0, "
                 "w0, w1",
                 lhs_gen, rhs_gen);
         }
         case parser::BinaryOpType::Subtract:
             return fmt::format(
-                "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nsub w0, "
+                "{}\nstr w0, [sp, "
+                "#-16]!\n{}\nldr w1, "
+                "[sp], #16\nsub w0, "
                 "w1, w0",
                 lhs_gen, rhs_gen);
         case parser::BinaryOpType::Divide:
             return fmt::format(
-                "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nsdiv w0, "
+                "{}\nstr w0, [sp, "
+                "#-16]!\n{}\nldr w1, "
+                "[sp], #16\nsdiv w0, "
                 "w1, w0",
                 lhs_gen, rhs_gen);
         case parser::BinaryOpType::Modulo:
@@ -178,39 +265,51 @@ namespace codegen {
         }
         case parser::BinaryOpType::BitwiseAnd:
             return fmt::format(
-                "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nand w0, "
+                "{}\nstr w0, [sp, "
+                "#-16]!\n{}\nldr w1, "
+                "[sp], #16\nand w0, "
                 "w1, w0",
                 lhs_gen, rhs_gen);
 
         case parser::BinaryOpType::BitwiseOr:
             return fmt::format(
-                "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\norr w0, "
+                "{}\nstr w0, [sp, "
+                "#-16]!\n{}\nldr w1, "
+                "[sp], #16\norr w0, "
                 "w1, w0",
                 lhs_gen, rhs_gen);
         case parser::BinaryOpType::BitwiseXor:
             return fmt::format(
-                "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\neor w0, "
+                "{}\nstr w0, [sp, "
+                "#-16]!\n{}\nldr w1, "
+                "[sp], #16\neor w0, "
                 "w1, w0",
                 lhs_gen, rhs_gen);
         case parser::BinaryOpType::RightShift:
             return fmt::format(
-                "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nasr w0, "
+                "{}\nstr w0, [sp, "
+                "#-16]!\n{}\nldr w1, "
+                "[sp], #16\nasr w0, "
                 "w1, w0",
                 lhs_gen, rhs_gen);
         case parser::BinaryOpType::LeftShift:
             return fmt::format(
-                "{}\nstr w0, [sp, #-16]!\n{}\nldr w1, [sp], #16\nlsl w0, "
+                "{}\nstr w0, [sp, "
+                "#-16]!\n{}\nldr w1, "
+                "[sp], #16\nlsl w0, "
                 "w1, w0",
                 lhs_gen, rhs_gen);
     }
 }
 
 [[nodiscard]] std::string AArch64Generator::codegen_unary_op(
-    const parser::UnaryOpExpression& unary_op) const {
+    const parser::UnaryOpExpression& unary_op) {
     switch (unary_op.m_op_type) {
         case parser::UnaryOpType::LogicalNot:
-            return fmt::format("{}\ncmp w0, 0\ncset w0, eq",
-                               codegen_expression(*unary_op.m_expr));
+            return fmt::format(
+                "{}\ncmp w0, 0\ncset w0, "
+                "eq",
+                codegen_expression(*unary_op.m_expr));
         case parser::UnaryOpType::BitwiseNot:
             return fmt::format("{}\nmvn w0, w0",
                                codegen_expression(*unary_op.m_expr));

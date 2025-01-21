@@ -6,6 +6,9 @@ namespace {
 bool is_identifier_char(auto c) {
     return static_cast<bool>(std::isalnum(c)) || c == '_';
 }
+bool is_identifier_start(auto c) {
+    return static_cast<bool>(std::isalpha(c)) || c == '_';
+}
 bool is_space(auto c) { return static_cast<bool>(std::isspace(c)); }
 bool is_digit(auto c) { return static_cast<bool>(std::isdigit(c)); }
 
@@ -79,7 +82,8 @@ Token TokenStream::consume() { return m_tokens[m_idx++]; }
         } else if (cur_token == "int"sv && is_space(istream.peek())) {
             out.emplace_back(TokenType::Int, std::move(cur_token));
             cur_token.clear();
-        } else if (cur_token == "return"sv && is_space(istream.peek())) {
+        } else if (cur_token == "return"sv &&
+                   !is_identifier_char(istream.peek())) {
             out.emplace_back(TokenType::Return, std::move(cur_token));
             cur_token.clear();
         } else if (cur_token == "-"sv) {
@@ -111,6 +115,9 @@ Token TokenStream::consume() { return m_tokens[m_idx++]; }
             cur_token.clear();
         } else if (cur_token == "||"sv) {
             out.emplace_back(TokenType::DoubleOr, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "="sv && istream.peek() != '=') {
+            out.emplace_back(TokenType::Equal, std::move(cur_token));
             cur_token.clear();
         } else if (cur_token == "=="sv) {
             out.emplace_back(TokenType::DoubleEqual, std::move(cur_token));
