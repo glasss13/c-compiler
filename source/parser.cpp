@@ -2,6 +2,8 @@
 
 #include <fmt/core.h>
 
+#include <iostream>
+
 #include "lexer.hpp"
 
 namespace {
@@ -65,6 +67,7 @@ std::optional<parser::CompoundAssignmentType> compound_assign_type(
         case TokenType::DoubleGreaterThan:
         case TokenType::DoubleLessThan:
         case TokenType::Caret:
+        case TokenType::Comma:
         case TokenType::Percent:
             return std::nullopt;
     }
@@ -110,6 +113,8 @@ parser::BinaryOpType bin_op_type(lexer::TokenType token) {
             return BinaryOpType::RightShift;
         case lexer::TokenType::DoubleLessThan:
             return BinaryOpType::LeftShift;
+        case TokenType::Comma:
+            return BinaryOpType::Comma;
         case TokenType::OpenBrace:
         case TokenType::CloseBrace:
         case TokenType::OpenParen:
@@ -288,11 +293,17 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_expression_t(
 
 std::expected<std::unique_ptr<Expression>, std::string> parse_expression(
     lexer::TokenStream& token_stream) {
+    return parse_expression_t<parse_assignment_expression, TokenType::Comma>(
+        token_stream);
+}
+
+std::expected<std::unique_ptr<Expression>, std::string>
+parse_assignment_expression(lexer::TokenStream& token_stream) {
     const auto restore_state = token_stream.save();
 
     if (const auto id = token_stream.try_consume(TokenType::Identifier)) {
         if (token_stream.consume_if(TokenType::Equal)) {
-            auto expr = parse_expression(token_stream);
+            auto expr = parse_logical_or_expr(token_stream);
             if (!expr) {
                 token_stream.restore(restore_state);
                 return std::unexpected(expr.error());
@@ -306,7 +317,7 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_expression(
                     return compound_assign_type(x.m_token_type);
                 })) {
             token_stream.consume();
-            auto expr = parse_expression(token_stream);
+            auto expr = parse_logical_or_expr(token_stream);
             if (!expr) {
                 token_stream.restore(restore_state);
                 return std::unexpected(expr.error());
@@ -397,7 +408,10 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
     }
 
     if (const auto token = token_stream.try_consume(TokenType::OpenParen)) {
+        std::cout << "consumed open paren\n";
         auto child_expr = parse_expression(token_stream);
+        std::cout << "inner expression of the paren: "
+                  << child_expr->get()->to_string(0);
         if (!child_expr) {
             return std::unexpected(child_expr.error());
         }
@@ -483,6 +497,8 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
                 return ">>"sv;
             case BinaryOpType::LeftShift:
                 return "<<"sv;
+            case BinaryOpType::Comma:
+                return ","sv;
         }
     }();
 

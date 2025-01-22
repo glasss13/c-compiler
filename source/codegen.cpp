@@ -320,6 +320,11 @@ namespace codegen {
                 "[sp], #16\nlsl w0, "
                 "w1, w0",
                 lhs_gen, rhs_gen);
+        case parser::BinaryOpType::Comma:
+            return fmt::format(
+                "{}\n"
+                "{}",
+                lhs_gen, rhs_gen);
     }
 }
 

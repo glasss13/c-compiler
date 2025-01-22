@@ -32,6 +32,7 @@ enum class TokenType {
     DoubleAmpersan,
     AmpersanEqual,
     Or,
+    Comma,
     DoubleOr,
     OrEqual,
     Equal,
@@ -106,6 +107,8 @@ struct Token {
                 return "AmpersanEqual";
             case TokenType::Or:
                 return "Or";
+            case TokenType::Comma:
+                return "Comma";
             case TokenType::DoubleOr:
                 return "DoubleOr";
             case TokenType::OrEqual:

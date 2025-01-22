@@ -79,6 +79,9 @@ Token TokenStream::consume() { return m_tokens[m_idx++]; }
         } else if (cur_token == ";"sv) {
             out.emplace_back(TokenType::Semicolon, std::move(cur_token));
             cur_token.clear();
+        } else if (cur_token == ","sv) {
+            out.emplace_back(TokenType::Comma, std::move(cur_token));
+            cur_token.clear();
         } else if (cur_token == "int"sv && is_space(istream.peek())) {
             out.emplace_back(TokenType::Int, std::move(cur_token));
             cur_token.clear();

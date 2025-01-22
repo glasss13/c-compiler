@@ -45,7 +45,8 @@ enum class BinaryOpType {
     Modulo,
     BitwiseXor,
     RightShift,
-    LeftShift
+    LeftShift,
+    Comma,
 };
 enum class CompoundAssignmentType {
     PlusEqual,
@@ -205,6 +206,8 @@ struct Program : public AstNode {
     [[nodiscard]] std::string to_string(int indent) const override;
 };
 
+std::expected<std::unique_ptr<Expression>, std::string>
+parse_assignment_expression(lexer::TokenStream& token_stream);
 std::expected<std::unique_ptr<Expression>, std::string> parse_logical_or_expr(
     lexer::TokenStream& token_stream);
 std::expected<std::unique_ptr<Expression>, std::string>
