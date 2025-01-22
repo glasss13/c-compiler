@@ -446,7 +446,7 @@ namespace codegen {
                 "str w0, [x29, #{}]",
                 *base_offset, *base_offset);
         }
-        case parser::UnaryOpType::PreDecrement:
+        case parser::UnaryOpType::PreDecrement: {
             if (unary_op.m_expr->m_expr_type !=
                 parser::ExpressionType::VariableRef) {
                 std::cout << "Pre decrement must be on a variable\n";
@@ -465,6 +465,51 @@ namespace codegen {
                 "sub w0, w0, #1\n"
                 "str w0, [x29, #{}]",
                 *base_offset, *base_offset);
+        }
+        case parser::UnaryOpType::PostIncrement: {
+            if (unary_op.m_expr->m_expr_type !=
+                parser::ExpressionType::VariableRef) {
+                std::cout << "Post increment must be on a variable\n";
+                std::terminate();
+            }
+            const auto& ref =
+                dynamic_cast<const parser::VariableRefExpression&>(
+                    *unary_op.m_expr);
+            const auto base_offset = m_scope->lookup(ref.m_var_name);
+            if (!base_offset) {
+                std::cout << "Unknown variable: " << ref.m_var_name;
+                std::terminate();
+            }
+            return fmt::format(
+                "ldr w0, [x29, #{}]\n"
+                "mov w1, w0\n"
+                "add w0, w0, #1\n"
+                "str w0, [x29, #{}]\n"
+                "mov w0, w1",
+                *base_offset, *base_offset);
+        }
+        case parser::UnaryOpType::PostDecrement: {
+            if (unary_op.m_expr->m_expr_type !=
+                parser::ExpressionType::VariableRef) {
+                std::cout << "Post decrement must be on a variable\n";
+                std::terminate();
+            }
+            const auto& ref =
+                dynamic_cast<const parser::VariableRefExpression&>(
+                    *unary_op.m_expr);
+            const auto base_offset = m_scope->lookup(ref.m_var_name);
+            if (!base_offset) {
+                std::cout << "Unknown variable: " << ref.m_var_name;
+                std::terminate();
+            }
+            return fmt::format(
+                "ldr w0, [x29, #{}]\n"
+                "mov w1, w0\n"
+                "sub w0, w0, #1\n"
+                "str w0, [x29, #{}]\n"
+                "mov w0, w1",
+                *base_offset, *base_offset);
+        }
     }
 }
 

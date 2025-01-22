@@ -28,6 +28,8 @@ enum class UnaryOpType {
     Negate,
     PreIncrement,
     PreDecrement,
+    PostIncrement,
+    PostDecrement,
 };
 enum class BinaryOpType {
     Add,
@@ -207,6 +209,11 @@ struct Program : public AstNode {
 
     [[nodiscard]] std::string to_string(int indent) const override;
 };
+std::expected<std::unique_ptr<Expression>, std::string> parse_unary_expression(
+    lexer::TokenStream& token_stream);
+
+std::expected<std::unique_ptr<Expression>, std::string>
+parse_postfix_expression(lexer::TokenStream& token_stream);
 
 std::expected<std::unique_ptr<Expression>, std::string>
 parse_assignment_expression(lexer::TokenStream& token_stream);

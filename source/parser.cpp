@@ -395,9 +395,71 @@ parse_additive_expression(lexer::TokenStream& token_stream) {
 }
 std::expected<std::unique_ptr<Expression>, std::string> parse_term(
     lexer::TokenStream& token_stream) {
-    return parse_expression_t<parse_factor, TokenType::Asterisk,
+    return parse_expression_t<parse_unary_expression, TokenType::Asterisk,
                               TokenType::ForwardSlash, TokenType::Percent>(
         token_stream);
+}
+
+std::expected<std::unique_ptr<Expression>, std::string> parse_unary_expression(
+    lexer::TokenStream& token_stream) {
+    const auto restore_state = token_stream.save();
+
+    const auto handle_unary_op = [&](UnaryOpType op_type)
+        -> std::expected<std::unique_ptr<UnaryOpExpression>, std::string> {
+        auto child_expr = parse_unary_expression(token_stream);
+        if (!child_expr) {
+            token_stream.restore(restore_state);
+            return std::unexpected(child_expr.error());
+        }
+        return std::make_unique<UnaryOpExpression>(
+            std::move(child_expr.value()), op_type);
+    };
+
+    if (const auto token = token_stream.try_consume(TokenType::Tilde)) {
+        return handle_unary_op(UnaryOpType::BitwiseNot);
+    }
+    if (const auto token = token_stream.try_consume(TokenType::Bang)) {
+        return handle_unary_op(UnaryOpType::LogicalNot);
+    }
+    if (const auto token = token_stream.try_consume(TokenType::Minus)) {
+        return handle_unary_op(UnaryOpType::Negate);
+    }
+    if (const auto token = token_stream.try_consume(TokenType::PlusPlus)) {
+        return handle_unary_op(UnaryOpType::PreIncrement);
+    }
+    if (const auto token = token_stream.try_consume(TokenType::MinusMinus)) {
+        return handle_unary_op(UnaryOpType::PreDecrement);
+    }
+
+    return parse_postfix_expression(token_stream);
+}
+
+std::expected<std::unique_ptr<Expression>, std::string>
+parse_postfix_expression(lexer::TokenStream& token_stream) {
+    const auto restore_state = token_stream.save();
+    auto maybe_expr = parse_factor(token_stream);
+    if (!maybe_expr) {
+        token_stream.restore(restore_state);
+        return std::unexpected(maybe_expr.error());
+    }
+    std::unique_ptr<Expression> expr = std::move(maybe_expr.value());
+
+    if (token_stream.has_tok(TokenType::PlusPlus) ||
+        token_stream.has_tok(TokenType::MinusMinus)) {
+        if (expr->m_expr_type != parser::ExpressionType::VariableRef) {
+            token_stream.restore(restore_state);
+            return std::unexpected(
+                "Post increment can only be applied to variable");
+        }
+
+        const auto op = token_stream.consume();
+        const auto op_type = op.m_token_type == TokenType::PlusPlus
+                                 ? UnaryOpType::PostIncrement
+                                 : UnaryOpType::PostDecrement;
+        return std::make_unique<UnaryOpExpression>(std::move(expr), op_type);
+    }
+
+    return expr;
 }
 
 std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
@@ -422,33 +484,6 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
                 "Failed to parse factor: expected closing paren");
         }
         return child_expr;
-    }
-
-    const auto handle_unary_op = [&](UnaryOpType op_type)
-        -> std::expected<std::unique_ptr<UnaryOpExpression>, std::string> {
-        auto child_expr = parse_factor(token_stream);
-        if (!child_expr) {
-            token_stream.restore(restore_state);
-            return std::unexpected(child_expr.error());
-        }
-        return std::make_unique<UnaryOpExpression>(
-            std::move(child_expr.value()), op_type);
-    };
-
-    if (const auto token = token_stream.try_consume(TokenType::Tilde)) {
-        return handle_unary_op(UnaryOpType::BitwiseNot);
-    }
-    if (const auto token = token_stream.try_consume(TokenType::Bang)) {
-        return handle_unary_op(UnaryOpType::LogicalNot);
-    }
-    if (const auto token = token_stream.try_consume(TokenType::Minus)) {
-        return handle_unary_op(UnaryOpType::Negate);
-    }
-    if (const auto token = token_stream.try_consume(TokenType::PlusPlus)) {
-        return handle_unary_op(UnaryOpType::PreIncrement);
-    }
-    if (const auto token = token_stream.try_consume(TokenType::MinusMinus)) {
-        return handle_unary_op(UnaryOpType::PreDecrement);
     }
 
     if (const auto token = token_stream.try_consume(TokenType::Identifier)) {
@@ -563,8 +598,10 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
             case UnaryOpType::Negate:
                 return "-";
             case UnaryOpType::PreIncrement:
+            case UnaryOpType::PostIncrement:
                 return "++";
             case UnaryOpType::PreDecrement:
+            case UnaryOpType::PostDecrement:
                 return "--";
         }
     }();
