@@ -11,11 +11,70 @@ inline std::string get_indent(int level) {
     return out;
 }
 
+std::optional<parser::CompoundAssignmentType> compound_assign_type(
+    lexer::TokenType token) {
+    using lexer::TokenType;
+    using parser::CompoundAssignmentType;
+    switch (token) {
+        case TokenType::OrEqual:
+            return CompoundAssignmentType::BitwiseOrEqual;
+        case TokenType::AmpersanEqual:
+            return CompoundAssignmentType::BitwiseAndEqual;
+        case TokenType::CaretEqual:
+            return CompoundAssignmentType::XorEqual;
+        case TokenType::DoubleLessThanEqual:
+            return CompoundAssignmentType::LeftShiftEqual;
+        case TokenType::DoubleGreaterThanEqual:
+            return CompoundAssignmentType::RightShiftEqual;
+        case TokenType::PlusEqual:
+            return CompoundAssignmentType::PlusEqual;
+        case TokenType::MinusEqual:
+            return CompoundAssignmentType::MinusEqual;
+        case TokenType::AsteriskEqual:
+            return CompoundAssignmentType::TimesEqual;
+        case TokenType::ForwardSlashEqual:
+            return CompoundAssignmentType::DivideEqual;
+        case TokenType::PercentEqual:
+            return CompoundAssignmentType::ModuloEqual;
+        case TokenType::OpenBrace:
+        case TokenType::CloseBrace:
+        case TokenType::OpenParen:
+        case TokenType::CloseParen:
+        case TokenType::Semicolon:
+        case TokenType::Int:
+        case TokenType::Return:
+        case TokenType::Identifier:
+        case TokenType::IntLiteral:
+        case TokenType::Minus:
+        case TokenType::Tilde:
+        case TokenType::Bang:
+        case TokenType::Plus:
+        case TokenType::Asterisk:
+        case TokenType::ForwardSlash:
+        case TokenType::Ampersan:
+        case TokenType::DoubleAmpersan:
+        case TokenType::Or:
+        case TokenType::DoubleOr:
+        case TokenType::Equal:
+        case TokenType::DoubleEqual:
+        case TokenType::NotEqual:
+        case TokenType::LessThan:
+        case TokenType::LessThanOrEqual:
+        case TokenType::GreaterThan:
+        case TokenType::GreaterThanOrEqual:
+        case TokenType::DoubleGreaterThan:
+        case TokenType::DoubleLessThan:
+        case TokenType::Caret:
+        case TokenType::Percent:
+            return std::nullopt;
+    }
+}
+
 parser::BinaryOpType bin_op_type(lexer::TokenType token) {
     using lexer::TokenType;
     using parser::BinaryOpType;
     switch (token) {
-        case TokenType::Dash:
+        case TokenType::Minus:
             return BinaryOpType::Subtract;
         case TokenType::Plus:
             return BinaryOpType::Add;
@@ -63,6 +122,16 @@ parser::BinaryOpType bin_op_type(lexer::TokenType token) {
         case TokenType::Bang:
         case TokenType::Tilde:
         case TokenType::Equal:
+        case TokenType::MinusEqual:
+        case TokenType::PlusEqual:
+        case TokenType::AsteriskEqual:
+        case TokenType::ForwardSlashEqual:
+        case TokenType::AmpersanEqual:
+        case TokenType::OrEqual:
+        case TokenType::DoubleGreaterThanEqual:
+        case TokenType::DoubleLessThanEqual:
+        case TokenType::PercentEqual:
+        case TokenType::CaretEqual:
             std::unreachable();
     }
 }
@@ -231,7 +300,23 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_expression(
             return std::make_unique<AssignmentExpression>(id->m_data,
                                                           std::move(*expr));
         }
+
+        if (const auto op_type =
+                token_stream.peek(0).and_then([](const auto& x) {
+                    return compound_assign_type(x.m_token_type);
+                })) {
+            token_stream.consume();
+            auto expr = parse_expression(token_stream);
+            if (!expr) {
+                token_stream.restore(restore_state);
+                return std::unexpected(expr.error());
+            }
+
+            return std::make_unique<CompoundAssignmentExpression>(
+                id->m_data, std::move(*expr), *op_type);
+        }
     }
+
     token_stream.restore(restore_state);
 
     return parse_logical_or_expr(token_stream);
@@ -290,7 +375,7 @@ parse_bitwise_shift_expr(lexer::TokenStream& token_stream) {
 
 std::expected<std::unique_ptr<Expression>, std::string>
 parse_additive_expression(lexer::TokenStream& token_stream) {
-    return parse_expression_t<parse_term, TokenType::Plus, TokenType::Dash>(
+    return parse_expression_t<parse_term, TokenType::Plus, TokenType::Minus>(
         token_stream);
 }
 std::expected<std::unique_ptr<Expression>, std::string> parse_term(
@@ -341,7 +426,7 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
     if (const auto token = token_stream.try_consume(TokenType::Bang)) {
         return handle_unary_op(UnaryOpType::LogicalNot);
     }
-    if (const auto token = token_stream.try_consume(TokenType::Dash)) {
+    if (const auto token = token_stream.try_consume(TokenType::Minus)) {
         return handle_unary_op(UnaryOpType::Negate);
     }
 
@@ -405,6 +490,40 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
                        get_indent(indent), op_str, get_indent(indent + 1),
                        m_lhs->to_string(indent + 2), get_indent(indent + 1),
                        m_rhs->to_string(indent + 2));
+}
+
+[[nodiscard]] std::string CompoundAssignmentExpression::to_string(
+    int indent) const {
+    using namespace std::literals;
+    const auto op_str = [&]() {
+        switch (m_op_type) {
+            case CompoundAssignmentType::PlusEqual:
+                return "+="sv;
+            case CompoundAssignmentType::MinusEqual:
+                return "-="sv;
+            case CompoundAssignmentType::TimesEqual:
+                return "*="sv;
+            case CompoundAssignmentType::DivideEqual:
+                return "/="sv;
+            case CompoundAssignmentType::ModuloEqual:
+                return "%="sv;
+            case CompoundAssignmentType::LeftShiftEqual:
+                return "<<="sv;
+            case CompoundAssignmentType::RightShiftEqual:
+                return ">>="sv;
+            case CompoundAssignmentType::BitwiseAndEqual:
+                return "&="sv;
+            case CompoundAssignmentType::BitwiseOrEqual:
+                return "|="sv;
+            case CompoundAssignmentType::XorEqual:
+                return "^="sv;
+        }
+    }();
+
+    return fmt::format("{}CompoundExpr: {}\n{}Variable: {}\n{}Expression:\n{}",
+                       get_indent(indent), op_str, get_indent(indent + 1),
+                       m_var_name, get_indent(indent + 1),
+                       m_expr->to_string(indent + 2));
 }
 
 [[nodiscard]] std::string IntLiteralExpression::to_string(int indent) const {

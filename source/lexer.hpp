@@ -18,16 +18,22 @@ enum class TokenType {
     Return,
     Identifier,
     IntLiteral,
-    Dash,
+    Minus,
+    MinusEqual,
     Tilde,
     Bang,
     Plus,
+    PlusEqual,
     Asterisk,
+    AsteriskEqual,
     ForwardSlash,
+    ForwardSlashEqual,
     Ampersan,
     DoubleAmpersan,
+    AmpersanEqual,
     Or,
     DoubleOr,
+    OrEqual,
     Equal,
     DoubleEqual,
     NotEqual,
@@ -36,9 +42,13 @@ enum class TokenType {
     GreaterThan,
     GreaterThanOrEqual,
     DoubleGreaterThan,
+    DoubleGreaterThanEqual,
     DoubleLessThan,
+    DoubleLessThanEqual,
     Percent,
+    PercentEqual,
     Caret,
+    CaretEqual,
 };
 
 struct Token {
@@ -68,26 +78,38 @@ struct Token {
                 return fmt::format("Identifier({})", m_data);
             case TokenType::IntLiteral:
                 return fmt::format("IntLiteral({})", m_data);
-            case TokenType::Dash:
-                return "Dash";
+            case TokenType::Minus:
+                return "Minus";
+            case TokenType::MinusEqual:
+                return "MinusEqual";
             case TokenType::Tilde:
                 return "Tilde";
             case TokenType::Bang:
                 return "Bang";
             case TokenType::Plus:
                 return "Plus";
+            case TokenType::PlusEqual:
+                return "PlusEqual";
             case TokenType::Asterisk:
                 return "Asterisk";
+            case TokenType::AsteriskEqual:
+                return "AsteriskEqual";
             case TokenType::ForwardSlash:
                 return "ForwardSlash";
+            case TokenType::ForwardSlashEqual:
+                return "ForwardSlashEqual";
             case TokenType::Ampersan:
                 return "Ampersan";
             case TokenType::DoubleAmpersan:
                 return "DoubleAmpersan";
+            case TokenType::AmpersanEqual:
+                return "AmpersanEqual";
             case TokenType::Or:
                 return "Or";
             case TokenType::DoubleOr:
                 return "DoubleOr";
+            case TokenType::OrEqual:
+                return "OrEqual";
             case TokenType::Equal:
                 return "Equal";
             case TokenType::DoubleEqual:
@@ -104,12 +126,20 @@ struct Token {
                 return "GreaterThanOrEqual";
             case TokenType::DoubleGreaterThan:
                 return "DoubleGreaterThan";
+            case TokenType::DoubleGreaterThanEqual:
+                return "DoubleGreaterThanEqual";
             case TokenType::DoubleLessThan:
                 return "DoubleLessThan";
+            case TokenType::DoubleLessThanEqual:
+                return "DoubleLessThanEqual";
             case TokenType::Percent:
                 return "Percent";
+            case TokenType::PercentEqual:
+                return "PercentEqual";
             case TokenType::Caret:
                 return "Caret";
+            case TokenType::CaretEqual:
+                return "CaretEqual";
         }
     }
 };

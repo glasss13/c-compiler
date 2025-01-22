@@ -19,6 +19,7 @@ enum class ExpressionType {
     UnaryOp,
     IntLiteral,
     Assignment,
+    CompoundAssignment,
     VariableRef,
 };
 enum class UnaryOpType {
@@ -45,6 +46,18 @@ enum class BinaryOpType {
     BitwiseXor,
     RightShift,
     LeftShift
+};
+enum class CompoundAssignmentType {
+    PlusEqual,
+    MinusEqual,
+    TimesEqual,
+    DivideEqual,
+    ModuloEqual,
+    LeftShiftEqual,
+    RightShiftEqual,
+    BitwiseAndEqual,
+    BitwiseOrEqual,
+    XorEqual,
 };
 
 struct AstNode {
@@ -112,6 +125,22 @@ struct AssignmentExpression : public Expression {
         : Expression(ExpressionType::Assignment),
           m_var_name(std::move(var_name)),
           m_expr(std::move(expr)) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
+struct CompoundAssignmentExpression : public Expression {
+    std::string m_var_name;
+    std::unique_ptr<Expression> m_expr;
+    CompoundAssignmentType m_op_type;
+
+    CompoundAssignmentExpression(std::string var_name,
+                                 std::unique_ptr<Expression> expr,
+                                 CompoundAssignmentType op_type)
+        : Expression(ExpressionType::CompoundAssignment),
+          m_var_name(std::move(var_name)),
+          m_expr(std::move(expr)),
+          m_op_type(op_type) {}
 
     [[nodiscard]] std::string to_string(int indent) const override;
 };

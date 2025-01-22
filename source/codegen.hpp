@@ -7,6 +7,8 @@
 
 #include "parser.hpp"
 
+static constexpr int align_size = 16;
+
 class Scope : public std::enable_shared_from_this<Scope> {
     struct Private {
         explicit Private() = default;
@@ -21,7 +23,8 @@ public:
 
     static std::shared_ptr<const Scope> global_scope() {
         static auto x = std::make_shared<Scope>(
-            nullptr, std::unordered_map<std::string, int>{}, -16, Private{});
+            nullptr, std::unordered_map<std::string, int>{}, -align_size,
+            Private{});
         return x;
     }
 
@@ -36,7 +39,7 @@ public:
         new_vars.emplace(name, m_offset);
 
         return std::make_shared<const Scope>(m_parent, std::move(new_vars),
-                                             m_offset - 16, Private{});
+                                             m_offset - align_size, Private{});
     }
 
     std::optional<int> lookup(const std::string& name) const {
@@ -70,6 +73,8 @@ public:
     CodeGenerator& operator=(CodeGenerator&&) = delete;
     virtual ~CodeGenerator() = default;
 
+    [[nodiscard]] virtual std::string codegen_compound_op(
+        const parser::CompoundAssignmentExpression& expr) = 0;
     [[nodiscard]] virtual std::string codegen_binary_op(
         const parser::BinaryOpExpression& expr) = 0;
     [[nodiscard]] virtual std::string codegen_program(
@@ -94,6 +99,8 @@ class AArch64Generator : public CodeGenerator {
 public:
     AArch64Generator() = default;
 
+    [[nodiscard]] std::string codegen_compound_op(
+        const parser::CompoundAssignmentExpression& expr) override;
     [[nodiscard]] std::string codegen_binary_op(
         const parser::BinaryOpExpression& expr) override;
     [[nodiscard]] std::string codegen_program(

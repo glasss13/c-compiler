@@ -86,8 +86,11 @@ Token TokenStream::consume() { return m_tokens[m_idx++]; }
                    !is_identifier_char(istream.peek())) {
             out.emplace_back(TokenType::Return, std::move(cur_token));
             cur_token.clear();
-        } else if (cur_token == "-"sv) {
-            out.emplace_back(TokenType::Dash, std::move(cur_token));
+        } else if (cur_token == "-"sv && istream.peek() != '=') {
+            out.emplace_back(TokenType::Minus, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "-=") {
+            out.emplace_back(TokenType::MinusEqual, std::move(cur_token));
             cur_token.clear();
         } else if (cur_token == "~"sv) {
             out.emplace_back(TokenType::Tilde, std::move(cur_token));
@@ -95,23 +98,41 @@ Token TokenStream::consume() { return m_tokens[m_idx++]; }
         } else if (cur_token == "!"sv && istream.peek() != '=') {
             out.emplace_back(TokenType::Bang, std::move(cur_token));
             cur_token.clear();
-        } else if (cur_token == "+"sv) {
+        } else if (cur_token == "+"sv && istream.peek() != '=') {
             out.emplace_back(TokenType::Plus, std::move(cur_token));
             cur_token.clear();
-        } else if (cur_token == "*"sv) {
+        } else if (cur_token == "+="sv) {
+            out.emplace_back(TokenType::PlusEqual, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "*"sv && istream.peek() != '=') {
             out.emplace_back(TokenType::Asterisk, std::move(cur_token));
             cur_token.clear();
-        } else if (cur_token == "/"sv) {
+        } else if (cur_token == "*="sv) {
+            out.emplace_back(TokenType::AsteriskEqual, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "/"sv && istream.peek() != '=') {
             out.emplace_back(TokenType::ForwardSlash, std::move(cur_token));
             cur_token.clear();
-        } else if (cur_token == "&"sv && istream.peek() != '&') {
+        } else if (cur_token == "/="sv) {
+            out.emplace_back(TokenType::ForwardSlashEqual,
+                             std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "&"sv && istream.peek() != '&' &&
+                   istream.peek() != '=') {
             out.emplace_back(TokenType::Ampersan, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "&="sv) {
+            out.emplace_back(TokenType::AmpersanEqual, std::move(cur_token));
             cur_token.clear();
         } else if (cur_token == "&&"sv) {
             out.emplace_back(TokenType::DoubleAmpersan, std::move(cur_token));
             cur_token.clear();
-        } else if (cur_token == "|"sv && istream.peek() != '|') {
+        } else if (cur_token == "|"sv && istream.peek() != '|' &&
+                   istream.peek() != '=') {
             out.emplace_back(TokenType::Or, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "|="sv) {
+            out.emplace_back(TokenType::OrEqual, std::move(cur_token));
             cur_token.clear();
         } else if (cur_token == "||"sv) {
             out.emplace_back(TokenType::DoubleOr, std::move(cur_token));
@@ -129,8 +150,12 @@ Token TokenStream::consume() { return m_tokens[m_idx++]; }
                    istream.peek() != '<') {
             out.emplace_back(TokenType::LessThan, std::move(cur_token));
             cur_token.clear();
-        } else if (cur_token == "<<"sv) {
+        } else if (cur_token == "<<"sv && istream.peek() != '=') {
             out.emplace_back(TokenType::DoubleLessThan, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "<<="sv) {
+            out.emplace_back(TokenType::DoubleLessThanEqual,
+                             std::move(cur_token));
             cur_token.clear();
         } else if (cur_token == "<="sv) {
             out.emplace_back(TokenType::LessThanOrEqual, std::move(cur_token));
@@ -139,19 +164,29 @@ Token TokenStream::consume() { return m_tokens[m_idx++]; }
                    istream.peek() != '>') {
             out.emplace_back(TokenType::GreaterThan, std::move(cur_token));
             cur_token.clear();
-        } else if (cur_token == ">>"sv) {
+        } else if (cur_token == ">>"sv && istream.peek() != '=') {
             out.emplace_back(TokenType::DoubleGreaterThan,
+                             std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == ">>="sv) {
+            out.emplace_back(TokenType::DoubleGreaterThanEqual,
                              std::move(cur_token));
             cur_token.clear();
         } else if (cur_token == ">="sv) {
             out.emplace_back(TokenType::GreaterThanOrEqual,
                              std::move(cur_token));
             cur_token.clear();
-        } else if (cur_token == "%"sv) {
+        } else if (cur_token == "%"sv && istream.peek() != '=') {
             out.emplace_back(TokenType::Percent, std::move(cur_token));
             cur_token.clear();
-        } else if (cur_token == "^"sv) {
+        } else if (cur_token == "%="sv) {
+            out.emplace_back(TokenType::PercentEqual, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "^"sv && istream.peek() != '=') {
             out.emplace_back(TokenType::Caret, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "^="sv) {
+            out.emplace_back(TokenType::CaretEqual, std::move(cur_token));
             cur_token.clear();
         } else if (!is_digit(istream.peek()) &&
                    ranges::all_of(cur_token, is_digit<char>)) {

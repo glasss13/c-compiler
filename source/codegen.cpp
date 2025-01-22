@@ -130,6 +130,11 @@ namespace codegen {
                 codegen_expression(*assignment_expr.m_expr), *base_offset);
         }
 
+        case parser::ExpressionType::CompoundAssignment: {
+            const auto& compound_expr =
+                dynamic_cast<const parser::CompoundAssignmentExpression&>(expr);
+            return codegen_compound_op(compound_expr);
+        }
         case parser::ExpressionType::VariableRef: {
             const auto& ref_expression =
                 dynamic_cast<const parser::VariableRefExpression&>(expr);
@@ -315,6 +320,90 @@ namespace codegen {
                 "[sp], #16\nlsl w0, "
                 "w1, w0",
                 lhs_gen, rhs_gen);
+    }
+}
+
+[[nodiscard]] std::string AArch64Generator::codegen_compound_op(
+    const parser::CompoundAssignmentExpression& expr) {
+    const auto base_offset = m_scope->lookup(expr.m_var_name);
+    if (!base_offset) {
+        std::cerr << "Unknown variable: " << expr.m_var_name << '\n';
+        std::terminate();
+    }
+    const auto rhs_gen = codegen_expression(*expr.m_expr);
+
+    switch (expr.m_op_type) {
+        case parser::CompoundAssignmentType::PlusEqual:
+            return fmt::format(
+                "{}\n"
+                "ldr w1, [x29, #{}]\n"
+                "add w0, w1, w0\n"
+                "str w0, [x29, #{}]",
+                rhs_gen, *base_offset, *base_offset);
+        case parser::CompoundAssignmentType::MinusEqual:
+            return fmt::format(
+                "{}\n"
+                "ldr w1, [x29, #{}]\n"
+                "sub w0, w1, w0\n"
+                "str w0, [x29, #{}]",
+                rhs_gen, *base_offset, *base_offset);
+        case parser::CompoundAssignmentType::TimesEqual:
+            return fmt::format(
+                "{}\n"
+                "ldr w1, [x29, #{}]\n"
+                "mul w0, w1, w0\n"
+                "str w0, [x29, #{}]",
+                rhs_gen, *base_offset, *base_offset);
+        case parser::CompoundAssignmentType::DivideEqual:
+            return fmt::format(
+                "{}\n"
+                "ldr w1, [x29, #{}]\n"
+                "sdiv w0, w1, w0\n"
+                "str w0, [x29, #{}]",
+                rhs_gen, *base_offset, *base_offset);
+        case parser::CompoundAssignmentType::ModuloEqual:
+            return fmt::format(
+                "{}\n"
+                "ldr w1, [x29, #{}]\n"
+                "sdiv w2, w1, w0\n"
+                "msub w0, w2, w0, w1\n"
+                "str w0, [x29, #{}]",
+                rhs_gen, *base_offset, *base_offset);
+        case parser::CompoundAssignmentType::LeftShiftEqual:
+            return fmt::format(
+                "{}\n"
+                "ldr w1, [x29, #{}]\n"
+                "lsl w0, w1, w0\n"
+                "str w0, [x29, #{}]",
+                rhs_gen, *base_offset, *base_offset);
+        case parser::CompoundAssignmentType::RightShiftEqual:
+            return fmt::format(
+                "{}\n"
+                "ldr w1, [x29, #{}]\n"
+                "asr w0, w1, w0\n"
+                "str w0, [x29, #{}]",
+                rhs_gen, *base_offset, *base_offset);
+        case parser::CompoundAssignmentType::BitwiseAndEqual:
+            return fmt::format(
+                "{}\n"
+                "ldr w1, [x29, #{}]\n"
+                "and w0, w1, w0\n"
+                "str w0, [x29, #{}]",
+                rhs_gen, *base_offset, *base_offset);
+        case parser::CompoundAssignmentType::BitwiseOrEqual:
+            return fmt::format(
+                "{}\n"
+                "ldr w1, [x29, #{}]\n"
+                "orr w0, w1, w0\n"
+                "str w0, [x29, #{}]",
+                rhs_gen, *base_offset, *base_offset);
+        case parser::CompoundAssignmentType::XorEqual:
+            return fmt::format(
+                "{}\n"
+                "ldr w1, [x29, #{}]\n"
+                "eor w0, w1, w0\n"
+                "str w0, [x29, #{}]",
+                rhs_gen, *base_offset, *base_offset);
     }
 }
 
