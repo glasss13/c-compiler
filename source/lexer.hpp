@@ -19,10 +19,12 @@ enum class TokenType {
     Identifier,
     IntLiteral,
     Minus,
+    MinusMinus,
     MinusEqual,
     Tilde,
     Bang,
     Plus,
+    PlusPlus,
     PlusEqual,
     Asterisk,
     AsteriskEqual,
@@ -81,6 +83,8 @@ struct Token {
                 return fmt::format("IntLiteral({})", m_data);
             case TokenType::Minus:
                 return "Minus";
+            case TokenType::MinusMinus:
+                return "MinusMinus";
             case TokenType::MinusEqual:
                 return "MinusEqual";
             case TokenType::Tilde:
@@ -89,6 +93,8 @@ struct Token {
                 return "Bang";
             case TokenType::Plus:
                 return "Plus";
+            case TokenType::PlusPlus:
+                return "PlusPlus";
             case TokenType::PlusEqual:
                 return "PlusEqual";
             case TokenType::Asterisk:

@@ -26,6 +26,8 @@ enum class UnaryOpType {
     LogicalNot,
     BitwiseNot,
     Negate,
+    PreIncrement,
+    PreDecrement,
 };
 enum class BinaryOpType {
     Add,

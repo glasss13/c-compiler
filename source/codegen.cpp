@@ -426,6 +426,45 @@ namespace codegen {
         case parser::UnaryOpType::Negate:
             return fmt::format("{}\nneg w0, w0",
                                codegen_expression(*unary_op.m_expr));
+        case parser::UnaryOpType::PreIncrement: {
+            if (unary_op.m_expr->m_expr_type !=
+                parser::ExpressionType::VariableRef) {
+                std::cout << "Pre increment must be on a variable\n";
+                std::terminate();
+            }
+            const auto& ref =
+                dynamic_cast<const parser::VariableRefExpression&>(
+                    *unary_op.m_expr);
+            const auto base_offset = m_scope->lookup(ref.m_var_name);
+            if (!base_offset) {
+                std::cout << "Unknown variable: " << ref.m_var_name;
+                std::terminate();
+            }
+            return fmt::format(
+                "ldr w0, [x29, #{}]\n"
+                "add w0, w0, #1\n"
+                "str w0, [x29, #{}]",
+                *base_offset, *base_offset);
+        }
+        case parser::UnaryOpType::PreDecrement:
+            if (unary_op.m_expr->m_expr_type !=
+                parser::ExpressionType::VariableRef) {
+                std::cout << "Pre decrement must be on a variable\n";
+                std::terminate();
+            }
+            const auto& ref =
+                dynamic_cast<const parser::VariableRefExpression&>(
+                    *unary_op.m_expr);
+            const auto base_offset = m_scope->lookup(ref.m_var_name);
+            if (!base_offset) {
+                std::cout << "Unknown variable: " << ref.m_var_name;
+                std::terminate();
+            }
+            return fmt::format(
+                "ldr w0, [x29, #{}]\n"
+                "sub w0, w0, #1\n"
+                "str w0, [x29, #{}]",
+                *base_offset, *base_offset);
     }
 }
 

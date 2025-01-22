@@ -68,6 +68,8 @@ std::optional<parser::CompoundAssignmentType> compound_assign_type(
         case TokenType::DoubleLessThan:
         case TokenType::Caret:
         case TokenType::Comma:
+        case TokenType::MinusMinus:
+        case TokenType::PlusPlus:
         case TokenType::Percent:
             return std::nullopt;
     }
@@ -136,6 +138,8 @@ parser::BinaryOpType bin_op_type(lexer::TokenType token) {
         case TokenType::DoubleGreaterThanEqual:
         case TokenType::DoubleLessThanEqual:
         case TokenType::PercentEqual:
+        case TokenType::MinusMinus:
+        case TokenType::PlusPlus:
         case TokenType::CaretEqual:
             std::unreachable();
     }
@@ -408,10 +412,7 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
     }
 
     if (const auto token = token_stream.try_consume(TokenType::OpenParen)) {
-        std::cout << "consumed open paren\n";
         auto child_expr = parse_expression(token_stream);
-        std::cout << "inner expression of the paren: "
-                  << child_expr->get()->to_string(0);
         if (!child_expr) {
             return std::unexpected(child_expr.error());
         }
@@ -442,6 +443,12 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
     }
     if (const auto token = token_stream.try_consume(TokenType::Minus)) {
         return handle_unary_op(UnaryOpType::Negate);
+    }
+    if (const auto token = token_stream.try_consume(TokenType::PlusPlus)) {
+        return handle_unary_op(UnaryOpType::PreIncrement);
+    }
+    if (const auto token = token_stream.try_consume(TokenType::MinusMinus)) {
+        return handle_unary_op(UnaryOpType::PreDecrement);
     }
 
     if (const auto token = token_stream.try_consume(TokenType::Identifier)) {
@@ -547,14 +554,18 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
 }
 
 [[nodiscard]] std::string UnaryOpExpression::to_string(int indent) const {
-    const auto op = [&]() {
+    const std::string op = [&]() {
         switch (m_op_type) {
             case UnaryOpType::LogicalNot:
-                return '!';
+                return "!";
             case UnaryOpType::BitwiseNot:
-                return '~';
+                return "~";
             case UnaryOpType::Negate:
-                return '-';
+                return "-";
+            case UnaryOpType::PreIncrement:
+                return "++";
+            case UnaryOpType::PreDecrement:
+                return "--";
         }
     }();
 
