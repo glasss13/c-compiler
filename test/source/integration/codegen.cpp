@@ -233,4 +233,13 @@ TEST_CASE("Compound XOR", "[integration]") {
     REQUIRE(status_code == 31);
 }
 
+TEST_CASE("Comma operator", "[integration]") {
+    std::string program =
+        "int main() { int a = 37; int b = (a = 3, a+1); return b;}";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 4);
+}
+
 // NOLINTEND
