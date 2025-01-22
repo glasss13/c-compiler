@@ -32,7 +32,7 @@ const std::filesystem::path valid_programs_path =
 //             const auto lexed = lexer::lex_program(ss);
 //             const auto parsed_ast = parser::parse_program(lexed);
 //             REQUIRE(parsed_ast);
-//             const auto generator = codegen::AArch64Generator();
+//             auto generator = codegen::AArch64Generator();
 //             auto codegen = generator.codegen_program(**parsed_ast);
 //
 //             auto our_status_code = compile_and_run(codegen, true);
@@ -186,6 +186,51 @@ TEST_CASE("Main returns 0 by default", "[integration]") {
     REQUIRE(assembly);
     const auto status_code = compile_and_run(*assembly, true);
     REQUIRE(status_code == 0);
+}
+
+TEST_CASE("Compound Add", "[integration]") {
+    std::string program =
+        "int main() { int x = 4; int y = 5; x += y; return x; }";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 9);
+}
+
+TEST_CASE("Compound Sub", "[integration]") {
+    std::string program =
+        "int main() { int x = 5; int y = 4; x -= y; return x; }";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 1);
+}
+
+TEST_CASE("Compound Multiply", "[integration]") {
+    std::string program =
+        "int main() { int x = 5; int y = 4; x *= y; return x; }";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 20);
+}
+
+TEST_CASE("Compound Divide", "[integration]") {
+    std::string program =
+        "int main() { int x = 26; int y = 5; x /= y; return x; }";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 5);
+}
+
+TEST_CASE("Compound XOR", "[integration]") {
+    std::string program =
+        "int main() { int x = 26; int y = 5; x ^= y; return x; }";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 31);
 }
 
 // NOLINTEND
