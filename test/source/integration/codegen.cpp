@@ -258,4 +258,20 @@ TEST_CASE("Pre decrement decrements", "[integration]") {
     REQUIRE(status_code == 3);
 }
 
+TEST_CASE("Post increment evaluates to right value", "[integration]") {
+    std::string program = "int main() { int a = 4; int b = a++; return b;}";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 4);
+}
+
+TEST_CASE("Post decrement decrements", "[integration]") {
+    std::string program = "int main() { int a = 4; a--; return a;}";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 3);
+}
+
 // NOLINTEND
