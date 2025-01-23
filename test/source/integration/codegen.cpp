@@ -274,4 +274,24 @@ TEST_CASE("Post decrement decrements", "[integration]") {
     REQUIRE(status_code == 3);
 }
 
+TEST_CASE("If statement", "[integration]") {
+    std::string program =
+        "int main() { int x = 4; int y = 5; if (x > y) return 100; else return "
+        "47;}";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 47);
+}
+
+TEST_CASE("Ternary expression", "[integration]") {
+    std::string program =
+        "int main() { int x = 4; int y = 5; return x == y ? 100 : 47;"
+        "47;}";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 47);
+}
+
 // NOLINTEND
