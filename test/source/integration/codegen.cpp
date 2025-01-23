@@ -294,4 +294,55 @@ TEST_CASE("Ternary expression", "[integration]") {
     REQUIRE(status_code == 47);
 }
 
+TEST_CASE("If statement block", "[integration]") {
+    const std::string program = R"#(
+                    int main() {
+                        int x = 4;
+                        int y = 5;
+                        if (y > x) {
+                            return y;
+                        } else {
+                            return x;
+                        }
+                    }
+)#";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 5);
+}
+
+TEST_CASE("Scope shadowing", "[integration]") {
+    const std::string program = R"#(
+                    int main() {
+                        int x = 4;
+                        int y = 5;
+                        {
+                            int x = 100;
+                            y += x;
+                        }
+                        return x + y;
+                    }
+)#";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 109);
+}
+
+TEST_CASE("Scope shadowing 2", "[integration]") {
+    const std::string program = R"#(
+                    int main() {
+                        {
+                            int i = 0;
+                        }
+                        int j = 1;
+                        return j;
+                    }
+)#";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 1);
+}
 // NOLINTEND
