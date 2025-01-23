@@ -17,7 +17,7 @@ enum class BlockItemType {
     Declaration,
     Statement,
 };
-enum class StatementType { Return, Expression, If };
+enum class StatementType { Return, Expression, If, Compound };
 enum class ExpressionType {
     BinaryOp,
     UnaryOp,
@@ -235,13 +235,23 @@ struct IfStatement : public Statement {
     [[nodiscard]] std::string to_string(int indent) const override;
 };
 
-struct Function : public AstNode {
-    std::string m_name;
+struct CompoundStatement : public Statement {
     std::vector<std::unique_ptr<BlockItem>> m_block_items;
 
-    Function(std::string name,
-             std::vector<std::unique_ptr<BlockItem>> block_items)
-        : m_name(std::move(name)), m_block_items(std::move(block_items)) {}
+    explicit CompoundStatement(
+        std::vector<std::unique_ptr<BlockItem>> block_items)
+        : Statement(StatementType::Compound),
+          m_block_items(std::move(block_items)) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
+struct Function : public AstNode {
+    std::string m_name;
+    std::unique_ptr<CompoundStatement> m_body;
+
+    Function(std::string name, std::unique_ptr<CompoundStatement> body)
+        : m_name(std::move(name)), m_body(std::move(body)) {}
 
     [[nodiscard]] std::string to_string(int indent) const override;
 };
@@ -255,6 +265,8 @@ struct Program : public AstNode {
     [[nodiscard]] std::string to_string(int indent) const override;
 };
 
+std::expected<std::unique_ptr<CompoundStatement>, std::string> parse_compound(
+    lexer::TokenStream& token_stream);
 std::expected<std::unique_ptr<Expression>, std::string> parse_ternary_expr(
     lexer::TokenStream& token_stream);
 std::expected<std::unique_ptr<BlockItem>, std::string> parse_block_item(

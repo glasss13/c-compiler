@@ -1,6 +1,8 @@
 #include "codegen.hpp"
 
+#include <algorithm>
 #include <iostream>
+#include <ranges>
 
 #include "parser.hpp"
 
@@ -17,32 +19,18 @@ namespace codegen {
 
 [[nodiscard]] std::string AArch64Generator::codegen_function(
     const parser::Function& function) {
-    enter_scope(m_scope->create_child_scope());
-
-    std::string block_asm;
-    bool has_return = false;
-    for (const auto& item : function.m_block_items) {
-        switch (item->m_item_type) {
-            case parser::BlockItemType::Statement: {
-                const auto& statement =
-                    dynamic_cast<const parser::Statement&>(*item);
-
-                if (statement.m_statement_type ==
-                    parser::StatementType::Return) {
-                    has_return = true;
-                }
-                block_asm += codegen_statement(statement);
-                break;
+    const bool has_return = std::ranges::any_of(
+        function.m_body->m_block_items, [](const auto& item) {
+            if (item->m_item_type != parser::BlockItemType::Statement) {
+                return false;
             }
-            case parser::BlockItemType::Declaration: {
-                const auto& declaration =
-                    dynamic_cast<const parser::Declaration&>(*item);
-                block_asm += codegen_declaration(declaration);
-                break;
-            }
-        }
-        block_asm += '\n';
-    }
+
+            const auto& statement =
+                dynamic_cast<const parser::Statement&>(*item);
+            return statement.m_statement_type == parser::StatementType::Return;
+        });
+
+    std::string body_asm = codegen_block(*function.m_body);
 
     auto out = fmt::format(
         ".globl _{}\n"
@@ -50,7 +38,7 @@ namespace codegen {
         "stp x29, x30, [sp, #-16]!\n"
         "mov x29, sp\n"
         "{}",
-        function.m_name, function.m_name, block_asm);
+        function.m_name, function.m_name, body_asm);
 
     // C standard says that main function should return 0 even if no
     // return statement is present.
@@ -67,9 +55,42 @@ namespace codegen {
     return out;
 }
 
+[[nodiscard]] std::string AArch64Generator::codegen_block(
+    const parser::CompoundStatement& statement) {
+    std::string asm_out;
+
+    enter_scope(m_scope->create_child_scope());
+
+    for (const auto& block_item : statement.m_block_items) {
+        switch (block_item->m_item_type) {
+            case parser::BlockItemType::Declaration: {
+                const auto& decl =
+                    dynamic_cast<const parser::Declaration&>(*block_item);
+                asm_out += codegen_declaration(decl);
+                asm_out += '\n';
+                break;
+            }
+            case parser::BlockItemType::Statement: {
+                const auto& stmnt =
+                    dynamic_cast<const parser::Statement&>(*block_item);
+                asm_out += codegen_statement(stmnt);
+                asm_out += '\n';
+                break;
+            }
+        }
+    }
+
+    exit_scope();
+    return asm_out;
+}
+
 [[nodiscard]] std::string AArch64Generator::codegen_declaration(
     const parser::Declaration& declaration) {
-    // TODO clean this up
+    if (m_scope->local_contains(declaration.m_var_name)) {
+        std::cout << fmt::format("Variable {} already declared",
+                                 declaration.m_var_name);
+        std::terminate();
+    }
     const auto base_offset = m_scope->base_offset();
     enter_scope(m_scope->add_var(declaration.m_var_name));
 
@@ -129,6 +150,11 @@ namespace codegen {
                 "{}:",
                 condition_asm, else_label, then_asm, end_label, else_label,
                 else_asm, end_label);
+        }
+        case parser::StatementType::Compound: {
+            const auto& compound_statement =
+                dynamic_cast<const parser::CompoundStatement&>(statement);
+            return codegen_block(compound_statement);
         }
     }
 }

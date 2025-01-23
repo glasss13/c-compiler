@@ -195,39 +195,22 @@ std::expected<std::unique_ptr<Function>, std::string> parse_function(
             "Failed to parse function: missing closing paren");
     }
 
-    if (!token_stream.consume_if(TokenType::OpenBrace)) {
+    auto body = parse_compound(token_stream);
+    if (!body) {
         token_stream.restore(restore_state);
-        return std::unexpected("Failed to parse function: missing open brace");
+        return std::unexpected("Failed to parse function: " + body.error());
     }
 
-    std::vector<std::unique_ptr<BlockItem>> body_block_items;
-
-    while (!token_stream.consume_if(TokenType::CloseBrace)) {
-        auto item = parse_block_item(token_stream);
-        if (!item) {
-            return std::unexpected(item.error());
-        }
-        body_block_items.push_back(std::move(*item));
-    }
-
-    return std::make_unique<Function>(id_token->m_data,
-                                      std::move(body_block_items));
+    return std::make_unique<Function>(id_token->m_data, std::move(*body));
 }
 
 std::expected<std::unique_ptr<BlockItem>, std::string> parse_block_item(
     lexer::TokenStream& token_stream) {
     const auto restore_state = token_stream.save();
 
-    auto declaration = parse_declaration(token_stream);
-    if (declaration) {
+    if (auto declaration = parse_declaration(token_stream)) {
         return declaration;
-    } else {
-        std::cout << declaration.error();
     }
-
-    // if (auto declaration = parse_declaration(token_stream)) {
-    //     return declaration;
-    // }
     if (auto statement = parse_statement(token_stream)) {
         return statement;
     }
@@ -269,6 +252,31 @@ std::expected<std::unique_ptr<Declaration>, std::string> parse_declaration(
     }
 
     return std::make_unique<Declaration>(id->m_data, std::move(initializer));
+}
+
+std::expected<std::unique_ptr<CompoundStatement>, std::string> parse_compound(
+    lexer::TokenStream& token_stream) {
+    const auto restore_state = token_stream.save();
+    if (!token_stream.consume_if(TokenType::OpenBrace)) {
+        token_stream.restore(restore_state);
+        return std::unexpected(
+            "Failed to parse compound statement: missing open brace");
+    }
+
+    std::vector<std::unique_ptr<BlockItem>> m_block_items;
+
+    while (auto item = parse_block_item(token_stream)) {
+        m_block_items.push_back(std::move(*item));
+    }
+
+    if (!token_stream.consume_if(TokenType::CloseBrace)) {
+        token_stream.restore(restore_state);
+        return std::unexpected(
+            "Failed to parse compound statement: missing closing brace");
+    }
+
+    return std::make_unique<parser::CompoundStatement>(
+        std::move(m_block_items));
 }
 
 std::expected<std::unique_ptr<Statement>, std::string> parse_statement(
@@ -329,6 +337,10 @@ std::expected<std::unique_ptr<Statement>, std::string> parse_statement(
         return std::make_unique<IfStatement>(std::move(*cond_expr),
                                              std::move(*then_statement),
                                              std::move(else_statement));
+    }
+
+    if (auto compound = parse_compound(token_stream)) {
+        return compound;
     }
 
     if (auto expr = parse_expression(token_stream)) {
@@ -425,14 +437,11 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_ternary_expr(
     }
 
     if (token_stream.consume_if(TokenType::QuestionMark)) {
-        std::cout << "\n\njust consumed question mark\n";
-        std::cout << "HELLO1 " << token_stream.peek(0)->to_string() << '\n';
         auto then_exp = parse_expression(token_stream);
         if (!then_exp) {
             token_stream.restore(restore_state);
             return std::unexpected(then_exp.error());
         }
-        std::cout << "HELLO2 " << token_stream.peek(0)->to_string() << '\n';
         if (!token_stream.consume_if(TokenType::Colon)) {
             token_stream.restore(restore_state);
             return std::unexpected(
@@ -667,6 +676,10 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
                        m_rhs->to_string(indent + 2));
 }
 
+[[nodiscard]] std::string CompoundStatement::to_string(int indent) const {
+    return "";
+}
+
 [[nodiscard]] std::string CompoundAssignmentExpression::to_string(
     int indent) const {
     using namespace std::literals;
@@ -782,7 +795,7 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
     std::string result =
         fmt::format("{}Function: {}", get_indent(indent), m_name);
 
-    for (const auto& item : m_block_items) {
+    for (const auto& item : m_body->m_block_items) {
         result += "\n" + item->to_string(indent + 1);
     }
 

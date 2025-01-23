@@ -53,6 +53,10 @@ public:
         return std::nullopt;
     }
 
+    bool local_contains(const std::string& name) const {
+        return m_variables.contains(name);
+    }
+
     std::shared_ptr<const Scope> parent() const { return m_parent; }
     int base_offset() const { return m_offset; }
 
@@ -73,6 +77,8 @@ public:
     CodeGenerator& operator=(CodeGenerator&&) = delete;
     virtual ~CodeGenerator() = default;
 
+    [[nodiscard]] virtual std::string codegen_block(
+        const parser::CompoundStatement& statement) = 0;
     [[nodiscard]] virtual std::string codegen_declaration(
         const parser::Declaration& declaration) = 0;
     [[nodiscard]] virtual std::string codegen_compound_op(
@@ -101,6 +107,8 @@ class AArch64Generator : public CodeGenerator {
 public:
     AArch64Generator() = default;
 
+    [[nodiscard]] std::string codegen_block(
+        const parser::CompoundStatement& statement) override;
     [[nodiscard]] std::string codegen_declaration(
         const parser::Declaration& declaration) override;
     [[nodiscard]] std::string codegen_compound_op(
