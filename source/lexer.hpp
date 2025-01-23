@@ -52,6 +52,10 @@ enum class TokenType {
     PercentEqual,
     Caret,
     CaretEqual,
+    If,
+    Else,
+    Colon,
+    QuestionMark,
 };
 
 struct Token {
@@ -149,6 +153,14 @@ struct Token {
                 return "Caret";
             case TokenType::CaretEqual:
                 return "CaretEqual";
+            case TokenType::If:
+                return "If";
+            case TokenType::Else:
+                return "Else";
+            case TokenType::Colon:
+                return "Colon";
+            case TokenType::QuestionMark:
+                return "QuestionMark";
         }
     }
 };

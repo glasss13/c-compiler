@@ -19,14 +19,29 @@ namespace codegen {
     const parser::Function& function) {
     enter_scope(m_scope->create_child_scope());
 
-    std::string statements;
+    std::string block_asm;
     bool has_return = false;
-    for (const auto& statement : function.m_statements) {
-        if (statement->m_statement_type == parser::StatementType::Return) {
-            has_return = true;
+    for (const auto& item : function.m_block_items) {
+        switch (item->m_item_type) {
+            case parser::BlockItemType::Statement: {
+                const auto& statement =
+                    dynamic_cast<const parser::Statement&>(*item);
+
+                if (statement.m_statement_type ==
+                    parser::StatementType::Return) {
+                    has_return = true;
+                }
+                block_asm += codegen_statement(statement);
+                break;
+            }
+            case parser::BlockItemType::Declaration: {
+                const auto& declaration =
+                    dynamic_cast<const parser::Declaration&>(*item);
+                block_asm += codegen_declaration(declaration);
+                break;
+            }
         }
-        statements += codegen_statement(*statement);
-        statements += '\n';
+        block_asm += '\n';
     }
 
     auto out = fmt::format(
@@ -35,7 +50,7 @@ namespace codegen {
         "stp x29, x30, [sp, #-16]!\n"
         "mov x29, sp\n"
         "{}",
-        function.m_name, function.m_name, statements);
+        function.m_name, function.m_name, block_asm);
 
     // C standard says that main function should return 0 even if no
     // return statement is present.
@@ -51,6 +66,26 @@ namespace codegen {
 
     return out;
 }
+
+[[nodiscard]] std::string AArch64Generator::codegen_declaration(
+    const parser::Declaration& declaration) {
+    // TODO clean this up
+    const auto base_offset = m_scope->base_offset();
+    enter_scope(m_scope->add_var(declaration.m_var_name));
+
+    std::string initializer;
+    if (declaration.m_initializer) {
+        initializer = codegen_expression(*declaration.m_initializer);
+    } else {
+        initializer = fmt::format("mov w0, #0");
+    }
+    return fmt::format(
+        "sub sp, sp, #16\n"
+        "{}\n"
+        "str w0, [x29, #{}]",
+        initializer, base_offset);
+}
+
 [[nodiscard]] std::string AArch64Generator::codegen_statement(
     const parser::Statement& statement) {
     switch (statement.m_statement_type) {
@@ -65,33 +100,35 @@ namespace codegen {
                 "ret",
                 codegen_expression(*ret_statement.m_expr));
         }
-        case parser::StatementType::Declaration: {
-            const auto& dec_statement =
-                dynamic_cast<const parser::DeclarationStatement&>(statement);
-
-            // TODO: clean this up
-            const auto base_offset = m_scope->base_offset();
-            enter_scope(m_scope->add_var(dec_statement.m_var_name));
-
-            auto declaration = fmt::format("sub sp, sp, #16");
-
-            std::string initializer;
-            if (dec_statement.m_initializer) {
-                initializer = codegen_expression(*dec_statement.m_initializer);
-            } else {
-                initializer = fmt::format("mov w0, #0");
-            }
-            return fmt::format(
-                "{}\n"
-                "{}\n"
-                "str w0, [x29, #{}]",
-                declaration, initializer, base_offset);
-        }
         case parser::StatementType::Expression: {
             const auto& expr_statement =
                 dynamic_cast<const parser::ExpressionStatement&>(statement);
 
             return codegen_expression(*expr_statement.m_expr);
+        }
+        case parser::StatementType::If: {
+            const auto& if_statement =
+                dynamic_cast<const parser::IfStatement&>(statement);
+
+            const auto condition_asm =
+                codegen_expression(*if_statement.m_condition);
+            const auto then_asm = codegen_statement(*if_statement.m_then);
+            const auto else_asm = codegen_statement(*if_statement.m_else);
+
+            const auto else_label = label(get_label_idx());
+            const auto end_label = label(get_label_idx());
+
+            return fmt::format(
+                "{}\n"
+                "cmp w0, #0\n"
+                "beq {}\n"
+                "{}\n"
+                "b {}\n"
+                "{}:\n"
+                "{}\n"
+                "{}:",
+                condition_asm, else_label, then_asm, end_label, else_label,
+                else_asm, end_label);
         }
     }
 }
@@ -148,6 +185,28 @@ namespace codegen {
 
             return fmt::format("ldr w0, [x29, #{}]", *base_offset);
         }
+        case parser::ExpressionType::Ternary:
+            const auto& ternary =
+                dynamic_cast<const parser::TernaryExpression&>(expr);
+
+            const auto condition_asm = codegen_expression(*ternary.m_cond);
+            const auto then_asm = codegen_expression(*ternary.m_then);
+            const auto else_asm = codegen_expression(*ternary.m_else);
+
+            const auto else_label = label(get_label_idx());
+            const auto end_label = label(get_label_idx());
+
+            return fmt::format(
+                "{}\n"
+                "cmp w0, #0\n"
+                "beq {}\n"
+                "{}\n"
+                "b {}\n"
+                "{}:\n"
+                "{}\n"
+                "{}:",
+                condition_asm, else_label, then_asm, end_label, else_label,
+                else_asm, end_label);
     }
 }
 

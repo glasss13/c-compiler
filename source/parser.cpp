@@ -70,6 +70,10 @@ std::optional<parser::CompoundAssignmentType> compound_assign_type(
         case TokenType::Comma:
         case TokenType::MinusMinus:
         case TokenType::PlusPlus:
+        case TokenType::Else:
+        case TokenType::If:
+        case TokenType::Colon:
+        case TokenType::QuestionMark:
         case TokenType::Percent:
             return std::nullopt;
     }
@@ -140,6 +144,10 @@ parser::BinaryOpType bin_op_type(lexer::TokenType token) {
         case TokenType::PercentEqual:
         case TokenType::MinusMinus:
         case TokenType::PlusPlus:
+        case TokenType::If:
+        case TokenType::Else:
+        case TokenType::Colon:
+        case TokenType::QuestionMark:
         case TokenType::CaretEqual:
             std::unreachable();
     }
@@ -192,18 +200,75 @@ std::expected<std::unique_ptr<Function>, std::string> parse_function(
         return std::unexpected("Failed to parse function: missing open brace");
     }
 
-    std::vector<std::unique_ptr<Statement>> body_statements;
+    std::vector<std::unique_ptr<BlockItem>> body_block_items;
 
     while (!token_stream.consume_if(TokenType::CloseBrace)) {
-        auto statement = parse_statement(token_stream);
-        if (!statement) {
-            return std::unexpected(statement.error());
+        auto item = parse_block_item(token_stream);
+        if (!item) {
+            return std::unexpected(item.error());
         }
-        body_statements.push_back(std::move(*statement));
+        body_block_items.push_back(std::move(*item));
     }
 
     return std::make_unique<Function>(id_token->m_data,
-                                      std::move(body_statements));
+                                      std::move(body_block_items));
+}
+
+std::expected<std::unique_ptr<BlockItem>, std::string> parse_block_item(
+    lexer::TokenStream& token_stream) {
+    const auto restore_state = token_stream.save();
+
+    auto declaration = parse_declaration(token_stream);
+    if (declaration) {
+        return declaration;
+    } else {
+        std::cout << declaration.error();
+    }
+
+    // if (auto declaration = parse_declaration(token_stream)) {
+    //     return declaration;
+    // }
+    if (auto statement = parse_statement(token_stream)) {
+        return statement;
+    }
+
+    token_stream.restore(restore_state);
+    return std::unexpected("Failed to parse block item");
+}
+
+std::expected<std::unique_ptr<Declaration>, std::string> parse_declaration(
+    lexer::TokenStream& token_stream) {
+    const auto restore_state = token_stream.save();
+
+    if (!token_stream.consume_if(TokenType::Int)) {
+        token_stream.restore(restore_state);
+        return std::unexpected("Failed to parse declaration");
+    }
+
+    auto id = token_stream.try_consume(TokenType::Identifier);
+    if (!id) {
+        token_stream.restore(restore_state);
+        return std::unexpected("Failed to parse statement: missing identifier");
+    }
+
+    std::unique_ptr<Expression> initializer{nullptr};
+
+    if (token_stream.consume_if(TokenType::Equal)) {
+        auto init = parse_expression(token_stream);
+        if (!init) {
+            return std::unexpected("Failed to parse initialzer: " +
+                                   init.error());
+        }
+        initializer = std::move(*init);
+    }
+
+    if (!token_stream.consume_if(TokenType::Semicolon)) {
+        token_stream.restore(restore_state);
+        return std::unexpected(
+            "Failed to parse declaration: missing semicolon");
+    }
+
+    return std::make_unique<Declaration>(id->m_data, std::move(initializer));
 }
 
 std::expected<std::unique_ptr<Statement>, std::string> parse_statement(
@@ -226,6 +291,46 @@ std::expected<std::unique_ptr<Statement>, std::string> parse_statement(
         return std::make_unique<ReturnStatement>(std::move(*expr));
     }
 
+    if (token_stream.consume_if(TokenType::If)) {
+        if (!token_stream.consume_if(TokenType::OpenParen)) {
+            token_stream.restore(restore_state);
+            return std::unexpected(
+                "Unable to parse if statement: expected open paren");
+        }
+        auto cond_expr = parse_expression(token_stream);
+        if (!cond_expr) {
+            token_stream.restore(restore_state);
+            return std::unexpected(
+                "Unable to parse if statement: Failed to parse condition "
+                "clause: " +
+                cond_expr.error());
+        }
+
+        if (!token_stream.consume_if(TokenType::CloseParen)) {
+            token_stream.restore(restore_state);
+            return std::unexpected(
+                "Unable to parse if statement: expected close paren");
+        }
+
+        auto then_statement = parse_statement(token_stream);
+        std::unique_ptr<Statement> else_statement{nullptr};
+
+        if (token_stream.consume_if(TokenType::Else)) {
+            auto maybe_else_statement = parse_statement(token_stream);
+            if (!maybe_else_statement) {
+                token_stream.restore(restore_state);
+                return std::unexpected(
+                    "Unable to parse if statement: unable to parse else "
+                    "clause: " +
+                    maybe_else_statement.error());
+            }
+            else_statement = std::move(*maybe_else_statement);
+        }
+        return std::make_unique<IfStatement>(std::move(*cond_expr),
+                                             std::move(*then_statement),
+                                             std::move(else_statement));
+    }
+
     if (auto expr = parse_expression(token_stream)) {
         if (!token_stream.consume_if(TokenType::Semicolon)) {
             token_stream.restore(restore_state);
@@ -236,34 +341,6 @@ std::expected<std::unique_ptr<Statement>, std::string> parse_statement(
         return std::make_unique<ExpressionStatement>(std::move(*expr));
     }
 
-    if (token_stream.consume_if(TokenType::Int)) {
-        auto id = token_stream.try_consume(TokenType::Identifier);
-        if (!id) {
-            token_stream.restore(restore_state);
-            return std::unexpected(
-                "Failed to parse statement: missing identifier");
-        }
-
-        std::unique_ptr<Expression> initializer{nullptr};
-
-        if (token_stream.consume_if(TokenType::Equal)) {
-            auto init = parse_expression(token_stream);
-            if (!init) {
-                return std::unexpected("Failed to parse initialzer: " +
-                                       init.error());
-            }
-            initializer = std::move(*init);
-        }
-
-        if (!token_stream.consume_if(TokenType::Semicolon)) {
-            token_stream.restore(restore_state);
-            return std::unexpected(
-                "Failed to parse statement: missing semicolon");
-        }
-
-        return std::make_unique<DeclarationStatement>(id->m_data,
-                                                      std::move(initializer));
-    }
     token_stream.restore(restore_state);
     return std::unexpected("Failed to parse statement");
 }
@@ -307,7 +384,7 @@ parse_assignment_expression(lexer::TokenStream& token_stream) {
 
     if (const auto id = token_stream.try_consume(TokenType::Identifier)) {
         if (token_stream.consume_if(TokenType::Equal)) {
-            auto expr = parse_logical_or_expr(token_stream);
+            auto expr = parse_ternary_expr(token_stream);
             if (!expr) {
                 token_stream.restore(restore_state);
                 return std::unexpected(expr.error());
@@ -321,7 +398,7 @@ parse_assignment_expression(lexer::TokenStream& token_stream) {
                     return compound_assign_type(x.m_token_type);
                 })) {
             token_stream.consume();
-            auto expr = parse_logical_or_expr(token_stream);
+            auto expr = parse_ternary_expr(token_stream);
             if (!expr) {
                 token_stream.restore(restore_state);
                 return std::unexpected(expr.error());
@@ -334,7 +411,47 @@ parse_assignment_expression(lexer::TokenStream& token_stream) {
 
     token_stream.restore(restore_state);
 
-    return parse_logical_or_expr(token_stream);
+    return parse_ternary_expr(token_stream);
+}
+
+std::expected<std::unique_ptr<Expression>, std::string> parse_ternary_expr(
+    lexer::TokenStream& token_stream) {
+    const auto restore_state = token_stream.save();
+
+    auto cond_expression = parse_logical_or_expr(token_stream);
+    if (!cond_expression) {
+        token_stream.restore(restore_state);
+        return std::unexpected(cond_expression.error());
+    }
+
+    if (token_stream.consume_if(TokenType::QuestionMark)) {
+        std::cout << "\n\njust consumed question mark\n";
+        std::cout << "HELLO1 " << token_stream.peek(0)->to_string() << '\n';
+        auto then_exp = parse_expression(token_stream);
+        if (!then_exp) {
+            token_stream.restore(restore_state);
+            return std::unexpected(then_exp.error());
+        }
+        std::cout << "HELLO2 " << token_stream.peek(0)->to_string() << '\n';
+        if (!token_stream.consume_if(TokenType::Colon)) {
+            token_stream.restore(restore_state);
+            return std::unexpected(
+                "Failed to parse ternary expression: missing colon");
+        }
+        auto else_expr = parse_ternary_expr(token_stream);
+        if (!else_expr) {
+            token_stream.restore(restore_state);
+            return std::unexpected(
+                "Failed to parse ternary expression else clause: " +
+                else_expr.error());
+        }
+
+        return std::make_unique<parser::TernaryExpression>(
+            std::move(*cond_expression), std::move(*then_exp),
+            std::move(*else_expr));
+    }
+
+    return cond_expression;
 }
 
 std::expected<std::unique_ptr<Expression>, std::string> parse_logical_or_expr(
@@ -584,6 +701,19 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
                        m_expr->to_string(indent + 2));
 }
 
+[[nodiscard]] std::string IfStatement::to_string(int indent) const {
+    std::string result = fmt::format("{}IfStatement\n", get_indent(indent));
+    result += fmt::format("{}Condition:\n{}", get_indent(indent + 1),
+                          m_condition->to_string(indent + 2));
+    result += fmt::format("{}Then:\n{}", get_indent(indent + 2),
+                          m_then->to_string(indent + 2));
+    if (m_else) {
+        result += fmt::format("{}Else:\n{}", get_indent(indent + 1),
+                              m_else->to_string(indent + 2));
+    }
+    return result;
+}
+
 [[nodiscard]] std::string IntLiteralExpression::to_string(int indent) const {
     return fmt::format("{}IntLiteral: {}", get_indent(indent), m_literal);
 }
@@ -619,14 +749,23 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
     return fmt::format("{}VariableRef: {}", get_indent(indent), m_var_name);
 }
 
+[[nodiscard]] std::string TernaryExpression::to_string(int indent) const {
+    return fmt::format(
+        "{}TernaryExpr\n{}Condition:\n{}\n{}Then:\n{}\n{}Else:\n{}",
+        get_indent(indent), get_indent(indent + 1),
+        m_cond->to_string(indent + 2), get_indent(indent + 1),
+        m_then->to_string(indent + 2), get_indent(indent + 1),
+        m_else->to_string(indent + 2));
+}
+
 [[nodiscard]] std::string ExpressionStatement::to_string(int indent) const {
     return fmt::format("{}ExpressionStmt:\n{}", get_indent(indent),
                        m_expr->to_string(indent + 1));
 }
 
-[[nodiscard]] std::string DeclarationStatement::to_string(int indent) const {
+[[nodiscard]] std::string Declaration::to_string(int indent) const {
     if (m_initializer) {
-        return fmt::format("{}DeclarationStmt: {}\n{}Initializer:\n{}",
+        return fmt::format("{}Declaration: {}\n{}Initializer:\n{}",
                            get_indent(indent), m_var_name,
                            get_indent(indent + 1),
                            m_initializer->to_string(indent + 2));
@@ -643,8 +782,8 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
     std::string result =
         fmt::format("{}Function: {}", get_indent(indent), m_name);
 
-    for (const auto& statement : m_statements) {
-        result += "\n" + statement->to_string(indent + 1);
+    for (const auto& item : m_block_items) {
+        result += "\n" + item->to_string(indent + 1);
     }
 
     return result;

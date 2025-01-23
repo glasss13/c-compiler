@@ -13,7 +13,11 @@
 
 namespace parser {
 
-enum class StatementType { Return, Declaration, Expression };
+enum class BlockItemType {
+    Declaration,
+    Statement,
+};
+enum class StatementType { Return, Expression, If };
 enum class ExpressionType {
     BinaryOp,
     UnaryOp,
@@ -21,6 +25,7 @@ enum class ExpressionType {
     Assignment,
     CompoundAssignment,
     VariableRef,
+    Ternary,
 };
 enum class UnaryOpType {
     LogicalNot,
@@ -75,15 +80,36 @@ struct AstNode {
 
     virtual std::string to_string(int indent) const = 0;
 };
-struct Statement : public AstNode {
-    StatementType m_statement_type;
 
-    explicit Statement(StatementType type) : m_statement_type(type) {}
-};
 struct Expression : public AstNode {
     ExpressionType m_expr_type;
 
     explicit Expression(ExpressionType type) : m_expr_type(type) {}
+};
+
+struct BlockItem : public AstNode {
+    BlockItemType m_item_type;
+
+    explicit BlockItem(BlockItemType item_type) : m_item_type(item_type) {}
+};
+struct Statement : public BlockItem {
+    StatementType m_statement_type;
+
+    explicit Statement(StatementType type)
+        : BlockItem(BlockItemType::Statement), m_statement_type(type) {}
+};
+
+struct Declaration : public BlockItem {
+    std::string m_var_name;
+    std::unique_ptr<Expression> m_initializer;
+
+    explicit Declaration(std::string var_name,
+                         std::unique_ptr<Expression> initializer = nullptr)
+        : BlockItem(BlockItemType::Declaration),
+          m_var_name(std::move(var_name)),
+          m_initializer(std::move(initializer)) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
 };
 
 struct BinaryOpExpression : public Expression {
@@ -160,24 +186,27 @@ struct VariableRefExpression : public Expression {
     [[nodiscard]] std::string to_string(int indent) const override;
 };
 
+struct TernaryExpression : public Expression {
+    std::unique_ptr<Expression> m_cond;
+    std::unique_ptr<Expression> m_then;
+    std::unique_ptr<Expression> m_else;
+
+    TernaryExpression(std::unique_ptr<Expression> cond,
+                      std::unique_ptr<Expression> then,
+                      std::unique_ptr<Expression> else_)
+        : Expression(ExpressionType::Ternary),
+          m_cond(std::move(cond)),
+          m_then(std::move(then)),
+          m_else(std::move(else_)) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
 struct ReturnStatement : public Statement {
     std::unique_ptr<Expression> m_expr;
 
     explicit ReturnStatement(std::unique_ptr<Expression> expr)
         : Statement(StatementType::Return), m_expr(std::move(expr)) {}
-
-    [[nodiscard]] std::string to_string(int indent) const override;
-};
-
-struct DeclarationStatement : public Statement {
-    std::string m_var_name;
-    std::unique_ptr<Expression> m_initializer;
-
-    explicit DeclarationStatement(
-        std::string var_name, std::unique_ptr<Expression> initializer = nullptr)
-        : Statement(StatementType::Declaration),
-          m_var_name(std::move(var_name)),
-          m_initializer(std::move(initializer)) {}
 
     [[nodiscard]] std::string to_string(int indent) const override;
 };
@@ -190,13 +219,29 @@ struct ExpressionStatement : public Statement {
     [[nodiscard]] std::string to_string(int indent) const override;
 };
 
+struct IfStatement : public Statement {
+    std::unique_ptr<Expression> m_condition;
+    std::unique_ptr<Statement> m_then;
+    std::unique_ptr<Statement> m_else;  // optional
+
+    IfStatement(std::unique_ptr<Expression> condition,
+                std::unique_ptr<Statement> then,
+                std::unique_ptr<Statement> else_ = nullptr)
+        : Statement(StatementType::If),
+          m_condition(std::move(condition)),
+          m_then(std::move(then)),
+          m_else(std::move(else_)) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
 struct Function : public AstNode {
     std::string m_name;
-    std::vector<std::unique_ptr<Statement>> m_statements;
+    std::vector<std::unique_ptr<BlockItem>> m_block_items;
 
     Function(std::string name,
-             std::vector<std::unique_ptr<Statement>> statements)
-        : m_name(std::move(name)), m_statements(std::move(statements)) {}
+             std::vector<std::unique_ptr<BlockItem>> block_items)
+        : m_name(std::move(name)), m_block_items(std::move(block_items)) {}
 
     [[nodiscard]] std::string to_string(int indent) const override;
 };
@@ -209,12 +254,17 @@ struct Program : public AstNode {
 
     [[nodiscard]] std::string to_string(int indent) const override;
 };
+
+std::expected<std::unique_ptr<Expression>, std::string> parse_ternary_expr(
+    lexer::TokenStream& token_stream);
+std::expected<std::unique_ptr<BlockItem>, std::string> parse_block_item(
+    lexer::TokenStream& token_stream);
+std::expected<std::unique_ptr<Declaration>, std::string> parse_declaration(
+    lexer::TokenStream& token_stream);
 std::expected<std::unique_ptr<Expression>, std::string> parse_unary_expression(
     lexer::TokenStream& token_stream);
-
 std::expected<std::unique_ptr<Expression>, std::string>
 parse_postfix_expression(lexer::TokenStream& token_stream);
-
 std::expected<std::unique_ptr<Expression>, std::string>
 parse_assignment_expression(lexer::TokenStream& token_stream);
 std::expected<std::unique_ptr<Expression>, std::string> parse_logical_or_expr(
