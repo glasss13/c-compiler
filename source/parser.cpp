@@ -677,7 +677,13 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
 }
 
 [[nodiscard]] std::string CompoundStatement::to_string(int indent) const {
-    return "";
+    std::string result =
+        fmt::format("{}CompoundStatement\n", get_indent(indent));
+    for (const auto& item : m_block_items) {
+        result += item->to_string(indent + 1);
+        result += "\n";
+    }
+    return result;
 }
 
 [[nodiscard]] std::string CompoundAssignmentExpression::to_string(
