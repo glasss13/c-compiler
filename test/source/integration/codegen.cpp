@@ -345,4 +345,247 @@ TEST_CASE("Scope shadowing 2", "[integration]") {
     const auto status_code = compile_and_run(*assembly, true);
     REQUIRE(status_code == 1);
 }
+
+TEST_CASE("Simple for loop", "[integration]") {
+    const std::string program = R"#(
+                    int main() {
+                        int sum = 0;
+                        for (int i = 0; i < 5; i++) {
+                            sum += i;
+                        }
+                        return sum;
+                    }
+)#";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 10);
+}
+
+TEST_CASE("For loop with empty body", "[integration]") {
+    const std::string program = R"#(
+                    int main() {
+                        for (int i = 0; i < 10; i++) {}
+                        return 42;
+                    }
+)#";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 42);
+}
+
+TEST_CASE("While loop simple", "[integration]") {
+    const std::string program = R"#(
+                    int main() {
+                        int count = 0;
+                        int i = 0;
+                        while (i < 5) {
+                            count += i;
+                            i++;
+                        }
+                        return count;
+                    }
+)#";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 10);
+}
+
+TEST_CASE("While loop with condition initially false", "[integration]") {
+    const std::string program = R"#(
+                    int main() {
+                        int x = 10;
+                        while (x < 5) {
+                            x++;
+                        }
+                        return x;
+                    }
+)#";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 10);
+}
+
+TEST_CASE("Do-while loop simple", "[integration]") {
+    const std::string program = R"#(
+                    int main() {
+                        int count = 0;
+                        int i = 0;
+                        do {
+                            count += i;
+                            i++;
+                        } while (i < 5);
+                        return count;
+                    }
+)#";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 10);
+}
+
+TEST_CASE("Do-while loop executes at least once", "[integration]") {
+    const std::string program = R"#(
+                    int main() {
+                        int x = 10;
+                        do {
+                            x++;
+                        } while (x < 5);
+                        return x;
+                    }
+)#";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 11);
+}
+
+TEST_CASE("Nested for loops", "[integration]") {
+    const std::string program = R"#(
+                    int main() {
+                        int sum = 0;
+                        for (int i = 0; i < 3; i++) {
+                            for (int j = 0; j < 3; j++) {
+                                sum += 1;
+                            }
+                        }
+                        return sum;
+                    }
+)#";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 9);
+}
+
+TEST_CASE("Nested while loops", "[integration]") {
+    const std::string program = R"#(
+                    int main() {
+                        int count = 0;
+                        int i = 0;
+                        while (i < 3) {
+                            int j = 0;
+                            while (j < 2) {
+                                count++;
+                                j++;
+                            }
+                            i++;
+                        }
+                        return count;
+                    }
+)#";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 6);
+}
+
+TEST_CASE("While loop with decrementing condition", "[integration]") {
+    const std::string program = R"#(
+                    int main() {
+                        int x = 5;
+                        while (x > 0) {
+                            x--;
+                        }
+                        return x;
+                    }
+)#";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 0);
+}
+
+TEST_CASE("For loop with empty expressions", "[integration]") {
+    const std::string program =
+        "int main() { int x = 1; for (;;) { return x + 2; } }";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 3);
+}
+
+TEST_CASE("While loop with continue", "[integration]") {
+    const std::string program = R"#(
+                    int main() {
+                        int count = 0;
+                        int i = 0;
+                        while (i < 5) {
+                            if (i == 2) {
+                                i++;
+                                continue; 
+                            }
+                            count++;
+                            i++;
+                        }
+                        return count;
+                    }
+)#";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 4);
+}
+
+TEST_CASE("While loop with break", "[integration]") {
+    const std::string program = R"#(
+                    int main() {
+                        int count = 0;
+                        int i = 0;
+                        while (i < 5) {
+                            if (i == 3) {
+                                break; 
+                            }
+                            count++;
+                            i++;
+                        }
+                        return count;
+                    }
+)#";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 3);
+}
+
+TEST_CASE("For loop with continue", "[integration]") {
+    const std::string program = R"#(
+                    int main() {
+                        int count = 0;
+                        for (int i = 0; i < 5; i++) {
+                            if (i == 2) {
+                                continue; 
+                            }
+                            count++;
+                        }
+                        return count;
+                    }
+)#";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 4);
+}
+
+TEST_CASE("For loop with break", "[integration]") {
+    const std::string program = R"#(
+                    int main() {
+                        int count = 0;
+                        for (int i = 0; i < 5; i++) {
+                            if (i == 3) {
+                                break; 
+                            }
+                            count++;
+                        }
+                        return count;
+                    }
+)#";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 3);
+}
 // NOLINTEND
