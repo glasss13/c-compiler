@@ -17,7 +17,18 @@ enum class BlockItemType {
     Declaration,
     Statement,
 };
-enum class StatementType { Return, Expression, If, Compound };
+enum class StatementType {
+    Return,
+    Expression,
+    If,
+    Compound,
+    For,
+    ForDecl,
+    While,
+    Do,
+    Break,
+    Continue
+};
 enum class ExpressionType {
     BinaryOp,
     UnaryOp,
@@ -26,6 +37,7 @@ enum class ExpressionType {
     CompoundAssignment,
     VariableRef,
     Ternary,
+    Empty,  // handles cases like for (;;)
 };
 enum class UnaryOpType {
     LogicalNot,
@@ -202,6 +214,12 @@ struct TernaryExpression : public Expression {
     [[nodiscard]] std::string to_string(int indent) const override;
 };
 
+struct EmptyExpression : public Expression {
+    explicit EmptyExpression() : Expression(ExpressionType::Empty) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
 struct ReturnStatement : public Statement {
     std::unique_ptr<Expression> m_expr;
 
@@ -214,7 +232,7 @@ struct ReturnStatement : public Statement {
 struct ExpressionStatement : public Statement {
     std::unique_ptr<Expression> m_expr;
 
-    explicit ExpressionStatement(std::unique_ptr<Expression> expr)
+    explicit ExpressionStatement(std::unique_ptr<Expression> expr = nullptr)
         : Statement(StatementType::Expression), m_expr(std::move(expr)) {}
     [[nodiscard]] std::string to_string(int indent) const override;
 };
@@ -243,6 +261,79 @@ struct CompoundStatement : public Statement {
         : Statement(StatementType::Compound),
           m_block_items(std::move(block_items)) {}
 
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
+struct ForStatement : public Statement {
+    std::unique_ptr<Expression> m_initial;
+    std::unique_ptr<Expression> m_control;
+    std::unique_ptr<Expression> m_post;
+    std::unique_ptr<Statement> m_statement;
+
+    ForStatement(std::unique_ptr<Expression> initial,
+                 std::unique_ptr<Expression> control,
+                 std::unique_ptr<Expression> post,
+                 std::unique_ptr<Statement> statement)
+        : Statement(StatementType::For),
+          m_initial(std::move(initial)),
+          m_control(std::move(control)),
+          m_post(std::move(post)),
+          m_statement(std::move(statement)) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
+struct ForDeclStatement : public Statement {
+    std::unique_ptr<Declaration> m_initial;
+    std::unique_ptr<Expression> m_control;
+    std::unique_ptr<Expression> m_post;
+    std::unique_ptr<Statement> m_statement;
+
+    ForDeclStatement(std::unique_ptr<Declaration> initial,
+                     std::unique_ptr<Expression> control,
+                     std::unique_ptr<Expression> post,
+                     std::unique_ptr<Statement> statement)
+        : Statement(StatementType::ForDecl),
+          m_initial(std::move(initial)),
+          m_control(std::move(control)),
+          m_post(std::move(post)),
+          m_statement(std::move(statement)) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
+struct WhileStatement : public Statement {
+    std::unique_ptr<Expression> m_cond_expr;
+    std::unique_ptr<Statement> m_statement;
+
+    WhileStatement(std::unique_ptr<Expression> cond_expr,
+                   std::unique_ptr<Statement> statement)
+        : Statement(StatementType::While),
+          m_cond_expr(std::move(cond_expr)),
+          m_statement(std::move(statement)) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
+struct DoStatement : public Statement {
+    std::unique_ptr<Expression> m_cond_expr;
+    std::unique_ptr<Statement> m_statement;
+
+    DoStatement(std::unique_ptr<Expression> cond_expr,
+                std::unique_ptr<Statement> statement)
+        : Statement(StatementType::Do),
+          m_cond_expr(std::move(cond_expr)),
+          m_statement(std::move(statement)) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
+struct BreakStatement : public Statement {
+    explicit BreakStatement() : Statement(StatementType::Break) {}
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+struct ContinueStatement : public Statement {
+    explicit ContinueStatement() : Statement(StatementType::Continue) {}
     [[nodiscard]] std::string to_string(int indent) const override;
 };
 

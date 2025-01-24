@@ -206,6 +206,25 @@ Token TokenStream::consume() { return m_tokens[m_idx++]; }
                    !is_identifier_char(istream.peek())) {
             out.emplace_back(TokenType::Else, std::move(cur_token));
             cur_token.clear();
+        } else if (cur_token == "for"sv &&
+                   !is_identifier_char(istream.peek())) {
+            out.emplace_back(TokenType::For, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "while"sv &&
+                   !is_identifier_char(istream.peek())) {
+            out.emplace_back(TokenType::While, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "do"sv && !is_identifier_char(istream.peek())) {
+            out.emplace_back(TokenType::Do, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "break"sv &&
+                   !is_identifier_char(istream.peek())) {
+            out.emplace_back(TokenType::Break, std::move(cur_token));
+            cur_token.clear();
+        } else if (cur_token == "continue"sv &&
+                   !is_identifier_char(istream.peek())) {
+            out.emplace_back(TokenType::Continue, std::move(cur_token));
+            cur_token.clear();
         } else if (cur_token == ":"sv) {
             out.emplace_back(TokenType::Colon, std::move(cur_token));
             cur_token.clear();

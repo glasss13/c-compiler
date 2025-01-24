@@ -74,6 +74,11 @@ std::optional<parser::CompoundAssignmentType> compound_assign_type(
         case TokenType::If:
         case TokenType::Colon:
         case TokenType::QuestionMark:
+        case TokenType::For:
+        case TokenType::While:
+        case TokenType::Do:
+        case TokenType::Continue:
+        case TokenType::Break:
         case TokenType::Percent:
             return std::nullopt;
     }
@@ -148,6 +153,11 @@ parser::BinaryOpType bin_op_type(lexer::TokenType token) {
         case TokenType::Else:
         case TokenType::Colon:
         case TokenType::QuestionMark:
+        case TokenType::For:
+        case TokenType::While:
+        case TokenType::Do:
+        case TokenType::Break:
+        case TokenType::Continue:
         case TokenType::CaretEqual:
             std::unreachable();
     }
@@ -279,7 +289,39 @@ std::expected<std::unique_ptr<CompoundStatement>, std::string> parse_compound(
         std::move(m_block_items));
 }
 
-std::expected<std::unique_ptr<Statement>, std::string> parse_statement(
+std::expected<std::unique_ptr<Expression>, std::string>
+parse_optional_exression_semicolon(lexer::TokenStream& token_stream) {
+    const auto restore_state = token_stream.save();
+
+    auto expr = parse_expression(token_stream);
+    if (!token_stream.consume_if(TokenType::Semicolon)) {
+        token_stream.restore(restore_state);
+        return std::unexpected(
+            "Failed to parse optional expression: missing semicolon");
+    }
+    if (!expr) {
+        return std::make_unique<EmptyExpression>();
+    }
+    return expr;
+}
+std::expected<std::unique_ptr<Expression>, std::string>
+parse_optional_exression_paren(lexer::TokenStream& token_stream) {
+    const auto restore_state = token_stream.save();
+
+    auto expr = parse_expression(token_stream);
+    if (!token_stream.consume_if(TokenType::CloseParen)) {
+        token_stream.restore(restore_state);
+        return std::unexpected(
+            "Failed to parse optional expression: missing closing paren");
+    }
+    if (!expr) {
+        return std::make_unique<EmptyExpression>();
+    }
+    return expr;
+}
+
+std::expected<std::unique_ptr<Statement>, std::string>
+parse_statement(  // NOLINT
     lexer::TokenStream& token_stream) {
     const auto restore_state = token_stream.save();
 
@@ -339,17 +381,162 @@ std::expected<std::unique_ptr<Statement>, std::string> parse_statement(
                                              std::move(else_statement));
     }
 
+    if (token_stream.consume_if(TokenType::For)) {
+        if (!token_stream.consume_if(TokenType::OpenParen)) {
+            token_stream.restore(restore_state);
+            return std::unexpected(
+                "Unable to parse for loop: missing open paren");
+        }
+
+        if (auto initial_expr =
+                parse_optional_exression_semicolon(token_stream)) {
+            auto control_expr =
+                parse_optional_exression_semicolon(token_stream);
+            if (!control_expr) {
+                token_stream.restore(restore_state);
+                return std::unexpected(
+                    "Failed to parse for loop: missing control expression");
+            }
+            // for (;;) gets transformed in AST to for (;1;)
+            if (control_expr.value()->m_expr_type ==
+                parser::ExpressionType::Empty) {
+                control_expr =
+                    std::make_unique<parser::IntLiteralExpression>(1);
+            }
+
+            auto post_expr = parse_optional_exression_paren(token_stream);
+            if (!post_expr) {
+                token_stream.restore(restore_state);
+                return std::unexpected(
+                    "Failed to parse for loop: mising post expression");
+            }
+
+            auto inner_statement = parse_statement(token_stream);
+            if (!inner_statement) {
+                token_stream.restore(restore_state);
+                return std::unexpected(inner_statement.error());
+            }
+
+            return std::make_unique<ForStatement>(
+                std::move(*initial_expr), std::move(*control_expr),
+                std::move(*post_expr), std::move(*inner_statement));
+        }
+
+        if (auto decl = parse_declaration(token_stream)) {
+            auto control_expr =
+                parse_optional_exression_semicolon(token_stream);
+            if (!control_expr) {
+                token_stream.restore(restore_state);
+                return std::unexpected(
+                    "Failed to parse for loop: missing control expression");
+            }
+
+            auto post_expr = parse_optional_exression_paren(token_stream);
+            if (!post_expr) {
+                token_stream.restore(restore_state);
+                return std::unexpected(
+                    "Failed to parse for loop: mising post expression");
+            }
+
+            auto inner_statement = parse_statement(token_stream);
+            if (!inner_statement) {
+                token_stream.restore(restore_state);
+                return std::unexpected(inner_statement.error());
+            }
+
+            return std::make_unique<ForDeclStatement>(
+                std::move(*decl), std::move(*control_expr),
+                std::move(*post_expr), std::move(*inner_statement));
+        }
+    }
+    if (token_stream.consume_if(TokenType::While)) {
+        if (!token_stream.consume_if(TokenType::OpenParen)) {
+            token_stream.restore(restore_state);
+            return std::unexpected(
+                "Failed to parse while loop: missing open paren");
+        }
+
+        auto cond_expr = parse_expression(token_stream);
+        if (!cond_expr) {
+            token_stream.restore(restore_state);
+            return std::unexpected(cond_expr.error());
+        }
+
+        if (!token_stream.consume_if(TokenType::CloseParen)) {
+            token_stream.restore(restore_state);
+            return std::unexpected(
+                "Failed to parse while loop: missing close paren");
+        }
+
+        auto statement = parse_statement(token_stream);
+        if (!statement) {
+            token_stream.restore(restore_state);
+            return std::unexpected(statement.error());
+        }
+
+        return std::make_unique<WhileStatement>(std::move(*cond_expr),
+                                                std::move(*statement));
+    }
+    if (token_stream.consume_if(TokenType::Do)) {
+        auto statement = parse_statement(token_stream);
+        if (!statement) {
+            token_stream.restore(restore_state);
+            return std::unexpected(statement.error());
+        }
+
+        if (!token_stream.consume_if(TokenType::While)) {
+            token_stream.restore(restore_state);
+            return std::unexpected(
+                "Failed to parse do while loop: missing while");
+        }
+
+        if (!token_stream.consume_if(TokenType::OpenParen)) {
+            token_stream.restore(restore_state);
+            return std::unexpected(
+                "Failed to parse do while loop: missing open paren");
+        }
+
+        auto cond_expr = parse_expression(token_stream);
+        if (!cond_expr) {
+            token_stream.restore(restore_state);
+            return std::unexpected(cond_expr.error());
+        }
+
+        if (!token_stream.consume_if(TokenType::CloseParen)) {
+            token_stream.restore(restore_state);
+            return std::unexpected(
+                "Failed to parse do while loop: missing close paren");
+        }
+        if (!token_stream.consume_if(TokenType::Semicolon)) {
+            token_stream.restore(restore_state);
+            return std::unexpected(
+                "Failed to parse do while loop: missing semicolon");
+        }
+
+        return std::make_unique<DoStatement>(std::move(*cond_expr),
+                                             std::move(*statement));
+    }
+    if (token_stream.consume_if(TokenType::Break)) {
+        if (!token_stream.consume_if(TokenType::Semicolon)) {
+            token_stream.restore(restore_state);
+            return std::unexpected("Failed to parse break: Missing semicolon");
+        }
+        return std::make_unique<BreakStatement>();
+    }
+    if (token_stream.consume_if(TokenType::Continue)) {
+        if (!token_stream.consume_if(TokenType::Semicolon)) {
+            token_stream.restore(restore_state);
+            return std::unexpected(
+                "Failed to parse continue: Missing semicolon");
+        }
+        return std::make_unique<ContinueStatement>();
+    }
+
     if (auto compound = parse_compound(token_stream)) {
         return compound;
     }
 
-    if (auto expr = parse_expression(token_stream)) {
-        if (!token_stream.consume_if(TokenType::Semicolon)) {
-            token_stream.restore(restore_state);
-            return std::unexpected(
-                "Failed to parse statement: missing semicolon");
-        }
-
+    if (auto expr = parse_optional_exression_semicolon(token_stream)) {
         return std::make_unique<ExpressionStatement>(std::move(*expr));
     }
 
@@ -625,6 +812,60 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
                         .value_or("EOF")));
 }
 
+[[nodiscard]] std::string ForStatement::to_string(int indent) const {
+    std::string result = fmt::format("{}ForStatement\n", get_indent(indent));
+    result += fmt::format("{}Initial:\n{}", get_indent(indent + 1),
+                          m_initial->to_string(indent + 2));
+    result += fmt::format("{}Control:\n{}", get_indent(indent + 1),
+                          m_control->to_string(indent + 2));
+    result += fmt::format("{}Post:\n{}", get_indent(indent + 1),
+                          m_post->to_string(indent + 2));
+    result += fmt::format("{}Body:\n{}", get_indent(indent + 1),
+                          m_statement->to_string(indent + 2));
+    return result;
+}
+
+[[nodiscard]] std::string ForDeclStatement::to_string(int indent) const {
+    std::string result =
+        fmt::format("{}ForDeclStatement\n", get_indent(indent));
+    result += fmt::format("{}Initial:\n{}", get_indent(indent + 1),
+                          m_initial->to_string(indent + 2));
+    result += fmt::format("{}Control:\n{}", get_indent(indent + 1),
+                          m_control->to_string(indent + 2));
+    result += fmt::format("{}Post:\n{}", get_indent(indent + 1),
+                          m_post->to_string(indent + 2));
+    result += fmt::format("{}Body:\n{}", get_indent(indent + 1),
+                          m_statement->to_string(indent + 2));
+    return result;
+}
+[[nodiscard]] std::string WhileStatement::to_string(int indent) const {
+    std::string result = fmt::format("{}WhileStatement\n", get_indent(indent));
+    result += fmt::format("{}Condition:\n{}", get_indent(indent + 1),
+                          m_cond_expr->to_string(indent + 2));
+    result += fmt::format("{}Body:\n{}", get_indent(indent + 1),
+                          m_statement->to_string(indent + 2));
+    return result;
+}
+
+[[nodiscard]] std::string DoStatement::to_string(int indent) const {
+    std::string result = fmt::format("{}DoStatement\n", get_indent(indent));
+    result += fmt::format("{}Body:\n{}", get_indent(indent + 1),
+                          m_statement->to_string(indent + 2));
+    result += fmt::format("{}Condition:\n{}", get_indent(indent + 1),
+                          m_cond_expr->to_string(indent + 2));
+    return result;
+}
+
+[[nodiscard]] std::string BreakStatement::to_string(int indent) const {
+    std::string result = fmt::format("{}BreakStatement\n", get_indent(indent));
+    return result;
+}
+[[nodiscard]] std::string ContinueStatement::to_string(int indent) const {
+    std::string result =
+        fmt::format("{}ContinueStatement\n", get_indent(indent));
+    return result;
+}
+
 [[nodiscard]] std::string BinaryOpExpression::to_string(int indent) const {
     using namespace std::literals;
     const auto op_str = [&]() {
@@ -684,6 +925,10 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
         result += "\n";
     }
     return result;
+}
+
+[[nodiscard]] std::string EmptyExpression::to_string(int indent) const {
+    return fmt::format("{}EmptyExpression\n", get_indent(indent));
 }
 
 [[nodiscard]] std::string CompoundAssignmentExpression::to_string(
@@ -778,8 +1023,11 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
 }
 
 [[nodiscard]] std::string ExpressionStatement::to_string(int indent) const {
-    return fmt::format("{}ExpressionStmt:\n{}", get_indent(indent),
-                       m_expr->to_string(indent + 1));
+    if (m_expr) {
+        return fmt::format("{}ExpressionStmt:\n{}", get_indent(indent),
+                           m_expr->to_string(indent + 1));
+    }
+    return fmt::format("{}ExpressionStmt:\nEmpty", get_indent(indent));
 }
 
 [[nodiscard]] std::string Declaration::to_string(int indent) const {
@@ -954,7 +1202,8 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
 //     ++tokens;
 //
 //     if (tokens->m_token_type != lexer::TokenType::Identifier) {
-//         return std::unexpected("Failed to parse function: malformed name");
+//         return std::unexpected("Failed to parse function: malformed
+//         name");
 //     }
 //     auto name = tokens->m_data;
 //     ++tokens;
@@ -989,7 +1238,8 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
 //     }
 //     ++tokens;
 //
-//     return std::make_unique<FunctionV>(name, std::move(statement.value()));
+//     return std::make_unique<FunctionV>(name,
+//     std::move(statement.value()));
 // }
 //
 // [[nodiscard]] std::expected<P<ProgramV>, std::string> parse_program_v(
@@ -1017,27 +1267,31 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
 //         }
 //         std::string operator()(StatementV& n) const {
 //             return std::visit(
-//                 [this](auto& p) { return ast_to_string(std::move(p), indent);
+//                 [this](auto& p) { return ast_to_string(std::move(p),
+//                 indent);
 //                 }, n);
 //         }
 //         std::string operator()(P<ReturnStatementV>& n) const {
 //             return fmt::format("{}Return\n{}", get_indent(indent),
-//                                ast_to_string(std::move(n->m_expr), indent +
-//                                1));
+//                                ast_to_string(std::move(n->m_expr), indent
+//                                + 1));
 //         }
 //         std::string operator()(ExpressionV& n) const {
 //             return std::visit(
-//                 [this](auto& p) { return ast_to_string(std::move(p), indent);
+//                 [this](auto& p) { return ast_to_string(std::move(p),
+//                 indent);
 //                 }, n);
 //         }
 //         std::string operator()(TermV& n) {
 //             return std::visit(
-//                 [this](auto& p) { return ast_to_string(std::move(p), indent);
+//                 [this](auto& p) { return ast_to_string(std::move(p),
+//                 indent);
 //                 }, n);
 //         }
 //         std::string operator()(FactorV& n) {
 //             return std::visit(
-//                 [this](auto& p) { return ast_to_string(std::move(p), indent);
+//                 [this](auto& p) { return ast_to_string(std::move(p),
+//                 indent);
 //                 }, n);
 //         }
 //         std::string operator()(P<BinaryOpExpressionV>& n) const {
@@ -1056,13 +1310,14 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
 //                 }
 //             }();
 //
-//             return fmt::format("{}BinaryOp: {}\n{}Left:\n{}\n{}Right:\n{}",
+//             return fmt::format("{}BinaryOp:
+//             {}\n{}Left:\n{}\n{}Right:\n{}",
 //                                get_indent(indent), op_char,
 //                                get_indent(indent + 1),
-//                                ast_to_string(std::move(n->m_lhs), indent +
-//                                2), get_indent(indent + 1),
-//                                ast_to_string(std::move(n->m_rhs), indent +
-//                                2));
+//                                ast_to_string(std::move(n->m_lhs), indent
+//                                + 2), get_indent(indent + 1),
+//                                ast_to_string(std::move(n->m_rhs), indent
+//                                + 2));
 //         }
 //         std::string operator()(P<ParenGroupFactorV>& n) const {
 //             return fmt::format(

@@ -134,7 +134,10 @@ namespace codegen {
             const auto condition_asm =
                 codegen_expression(*if_statement.m_condition);
             const auto then_asm = codegen_statement(*if_statement.m_then);
-            const auto else_asm = codegen_statement(*if_statement.m_else);
+            std::string else_asm;
+            if (if_statement.m_else) {
+                else_asm = codegen_statement(*if_statement.m_else);
+            }
 
             const auto else_label = label(get_label_idx());
             const auto end_label = label(get_label_idx());
@@ -155,6 +158,138 @@ namespace codegen {
             const auto& compound_statement =
                 dynamic_cast<const parser::CompoundStatement&>(statement);
             return codegen_block(compound_statement);
+        }
+        case parser::StatementType::For: {
+            const auto& for_statement =
+                dynamic_cast<const parser::ForStatement&>(statement);
+
+            const auto loop_label = label(get_label_idx());
+            const auto updater_label = label(get_label_idx());
+            const auto end_label = label(get_label_idx());
+
+            enter_scope(m_scope->add_continue_label(updater_label)
+                            ->add_break_label(end_label));
+
+            const auto init_asm = codegen_expression(*for_statement.m_initial);
+            const auto cond_asm = codegen_expression(*for_statement.m_control);
+            const auto updater_asm = codegen_expression(*for_statement.m_post);
+
+            const auto body_asm = codegen_statement(*for_statement.m_statement);
+
+            return fmt::format(
+                "{}\n"   // init_asm
+                "{}:\n"  // loop_label
+                "{}\n"   // cond_asm
+                "cmp w0, #0\n"
+                "beq {}\n"  // end_label
+                "{}\n"      // body_asm
+                "{}:\n"     // updater_label
+                "{}\n"      // updater_asm
+                "b {}\n"    // loop_label
+                "{}:\n",    // loop_end
+                init_asm, loop_label, cond_asm, end_label, body_asm,
+                updater_label, updater_asm, loop_label, end_label);
+        }
+        case parser::StatementType::ForDecl: {
+            const auto& for_decl =
+                dynamic_cast<const parser::ForDeclStatement&>(statement);
+
+            const auto loop_label = label(get_label_idx());
+            const auto updater_label = label(get_label_idx());
+            const auto end_label = label(get_label_idx());
+
+            enter_scope(m_scope->create_child_scope()
+                            ->add_continue_label(updater_label)
+                            ->add_break_label(end_label));
+
+            const auto init_asm = codegen_declaration(*for_decl.m_initial);
+            const auto cond_asm = codegen_expression(*for_decl.m_control);
+            const auto updater_asm = codegen_expression(*for_decl.m_post);
+
+            const auto body_asm = codegen_statement(*for_decl.m_statement);
+
+            exit_scope();
+
+            return fmt::format(
+                "{}\n"   // init_asm
+                "{}:\n"  // loop_label
+                "{}\n"   // cond_asm
+                "cmp w0, #0\n"
+                "beq {}\n"  // end_label
+                "{}\n"      // body_asm
+                "{}:\n"     // updater_label
+                "{}\n"      // updater_asm
+                "b {}\n"    // loop_label
+                "{}:\n",    // loop_end
+                init_asm, loop_label, cond_asm, end_label, body_asm,
+                updater_label, updater_asm, loop_label, end_label);
+        }
+        case parser::StatementType::While: {
+            const auto& while_statement =
+                dynamic_cast<const parser::WhileStatement&>(statement);
+            const auto loop_label = label(get_label_idx());
+            const auto updater_label = label(get_label_idx());
+            const auto end_label = label(get_label_idx());
+
+            // TODO this abstraction needs to be changed
+            enter_scope(m_scope->add_continue_label(loop_label)
+                            ->add_break_label(end_label));
+
+            const auto body_asm =
+                codegen_statement(*while_statement.m_statement);
+            const auto cond_asm =
+                codegen_expression(*while_statement.m_cond_expr);
+
+            return fmt::format(
+                "{}:\n"  // loop label
+                "{}\n"   // cond_asm
+                "cmp w0, #0\n"
+                "beq {}\n"  // end loop
+                "{}\n"      // body_asm
+                "b {}\n"    // loop label
+                "{}:",      // end loop
+                loop_label, cond_asm, end_label, body_asm, loop_label,
+                end_label);
+        }
+        case parser::StatementType::Do: {
+            const auto& do_statement =
+                dynamic_cast<const parser::DoStatement&>(statement);
+            const auto loop_label = label(get_label_idx());
+            const auto end_label = label(get_label_idx());
+
+            enter_scope(m_scope->add_continue_label(loop_label)
+                            ->add_break_label(end_label));
+
+            const auto body_asm = codegen_statement(*do_statement.m_statement);
+            const auto cond_asm = codegen_expression(*do_statement.m_cond_expr);
+
+            return fmt::format(
+                "{}:\n"  // loop label
+                "{}\n"   // body asm
+                "{}\n"   // cond_asm
+                "cmp w0, #0\n"
+                "bne {}\n"  // loop label
+                "{}:",
+                loop_label, body_asm, cond_asm, loop_label, end_label);
+        }
+        case parser::StatementType::Break: {
+            const auto break_label = m_scope->get_break_label();
+            if (!break_label) {
+                std::cout << "Must use break in a loop context\n";
+                std::terminate();
+            }
+
+            return fmt::format("b {}", *break_label);
+        }
+        case parser::StatementType::Continue: {
+            std::cout << "generating contunue\n";
+            const auto continue_label = m_scope->get_continue_label();
+            if (!continue_label) {
+                std::cout << "Must use continue in a loop context\n";
+                std::terminate();
+            }
+
+            return fmt::format("b {}", *continue_label);
         }
     }
 }
@@ -211,7 +346,7 @@ namespace codegen {
 
             return fmt::format("ldr w0, [x29, #{}]", *base_offset);
         }
-        case parser::ExpressionType::Ternary:
+        case parser::ExpressionType::Ternary: {
             const auto& ternary =
                 dynamic_cast<const parser::TernaryExpression&>(expr);
 
@@ -233,6 +368,10 @@ namespace codegen {
                 "{}:",
                 condition_asm, else_label, then_asm, end_label, else_label,
                 else_asm, end_label);
+        }
+        case parser::ExpressionType::Empty: {
+            return "";
+        }
     }
 }
 

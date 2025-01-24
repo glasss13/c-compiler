@@ -56,6 +56,11 @@ enum class TokenType {
     Else,
     Colon,
     QuestionMark,
+    For,
+    While,
+    Do,
+    Break,
+    Continue,
 };
 
 struct Token {
@@ -161,6 +166,16 @@ struct Token {
                 return "Colon";
             case TokenType::QuestionMark:
                 return "QuestionMark";
+            case TokenType::For:
+                return "For";
+            case TokenType::While:
+                return "While";
+            case TokenType::Do:
+                return "Do";
+            case TokenType::Break:
+                return "Break";
+            case TokenType::Continue:
+                return "Continue";
         }
     }
 };

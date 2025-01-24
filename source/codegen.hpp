@@ -21,6 +21,16 @@ public:
           m_variables(std::move(vars)),
           m_offset(offset) {}
 
+    Scope(std::shared_ptr<const Scope> parent,
+          std::unordered_map<std::string, int> vars, int offset,
+          std::optional<std::string> continue_label,
+          std::optional<std::string> break_label, Private /**/)
+        : m_parent(std::move(parent)),
+          m_variables(std::move(vars)),
+          m_offset(offset),
+          m_continue_label(std::move(continue_label)),
+          m_break_label(std::move(break_label)) {}
+
     static std::shared_ptr<const Scope> global_scope() {
         static auto x = std::make_shared<Scope>(
             nullptr, std::unordered_map<std::string, int>{}, -align_size,
@@ -31,15 +41,34 @@ public:
     std::shared_ptr<const Scope> create_child_scope() const {
         return std::make_shared<const Scope>(
             shared_from_this(), std::unordered_map<std::string, int>{},
-            m_offset, Private{});
+            m_offset, m_continue_label, m_break_label, Private{});
     }
 
     std::shared_ptr<const Scope> add_var(std::string name) const {
         auto new_vars = m_variables;
         new_vars.emplace(name, m_offset);
 
-        return std::make_shared<const Scope>(m_parent, std::move(new_vars),
-                                             m_offset - align_size, Private{});
+        return std::make_shared<const Scope>(
+            m_parent, std::move(new_vars), m_offset - align_size,
+            m_continue_label, m_break_label, Private{});
+    }
+
+    std::shared_ptr<const Scope> add_continue_label(std::string label) const {
+        return std::make_shared<const Scope>(m_parent, m_variables, m_offset,
+                                             label, m_break_label, Private{});
+    }
+
+    std::shared_ptr<const Scope> add_break_label(std::string label) const {
+        return std::make_shared<const Scope>(m_parent, m_variables, m_offset,
+                                             m_continue_label, label,
+                                             Private{});
+    }
+
+    const std::optional<std::string>& get_continue_label() const {
+        return m_continue_label;
+    }
+    const std::optional<std::string>& get_break_label() const {
+        return m_break_label;
     }
 
     std::optional<int> lookup(const std::string& name) const {
@@ -64,6 +93,8 @@ private:
     std::shared_ptr<const Scope> m_parent;
     std::unordered_map<std::string, int> m_variables;
     int m_offset;
+    std::optional<std::string> m_continue_label;
+    std::optional<std::string> m_break_label;
 };
 
 namespace codegen {
