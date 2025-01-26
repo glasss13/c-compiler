@@ -170,12 +170,21 @@ using lexer::TokenType;
 
 std::expected<std::unique_ptr<Program>, std::string> parse_program(
     lexer::TokenStream token_stream) {
-    auto function = parse_function(token_stream);
-    if (!function) {
-        return std::unexpected(function.error());
+    const auto restore_state = token_stream.save();
+    std::vector<std::unique_ptr<Function>> functions;
+
+    while (token_stream.peek(0)) {
+        auto function = parse_function(token_stream);
+        if (!function) {
+            token_stream.restore(restore_state);
+            return std::unexpected("Failed to parse function: " +
+                                   function.error());
+        }
+
+        functions.push_back(std::move(*function));
     }
 
-    return std::make_unique<Program>(std::move(function.value()));
+    return std::make_unique<Program>(std::move(functions));
 }
 
 std::expected<std::unique_ptr<Function>, std::string> parse_function(
@@ -199,10 +208,49 @@ std::expected<std::unique_ptr<Function>, std::string> parse_function(
         token_stream.restore(restore_state);
         return std::unexpected("Failed to parse function: missing open paren");
     }
+    std::vector<std::string> params;
+    const auto parse_argument = [&]() -> std::optional<std::string> {
+        auto id = token_stream.try_consume(TokenType::Identifier);
+        if (!id) {
+            return std::nullopt;
+        }
+        return id->m_data;
+    };
+
+    if (token_stream.consume_if(TokenType::Int)) {
+        auto first_param = parse_argument();
+        if (!first_param) {
+            token_stream.restore(restore_state);
+            return std::unexpected(
+                "Failed to parse function arguments, expected identifier");
+        }
+        params.push_back(*first_param);
+
+        while (token_stream.consume_if(TokenType::Comma)) {
+            if (!token_stream.consume_if(TokenType::Int)) {
+                token_stream.restore(restore_state);
+                return std::unexpected(
+                    "Failed to parse function argumenst, expected int");
+            }
+            auto param = parse_argument();
+            if (!param) {
+                token_stream.restore(restore_state);
+                return std::unexpected(
+                    "Failed to parse function arguments, expected identifier");
+            }
+            params.push_back(*param);
+        }
+    }
+
     if (!token_stream.consume_if(TokenType::CloseParen)) {
         token_stream.restore(restore_state);
         return std::unexpected(
             "Failed to parse function: missing closing paren");
+    }
+
+    if (token_stream.consume_if(TokenType::Semicolon)) {
+        return std::make_unique<Function>(id_token->m_data, std::move(params),
+                                          nullptr);
     }
 
     auto body = parse_compound(token_stream);
@@ -211,7 +259,8 @@ std::expected<std::unique_ptr<Function>, std::string> parse_function(
         return std::unexpected("Failed to parse function: " + body.error());
     }
 
-    return std::make_unique<Function>(id_token->m_data, std::move(*body));
+    return std::make_unique<Function>(id_token->m_data, std::move(params),
+                                      std::move(*body));
 }
 
 std::expected<std::unique_ptr<BlockItem>, std::string> parse_block_item(
@@ -778,6 +827,7 @@ parse_postfix_expression(lexer::TokenStream& token_stream) {
 std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
     lexer::TokenStream& token_stream) {
     const auto restore_state = token_stream.save();
+
     if (const auto token = token_stream.try_consume(TokenType::IntLiteral)) {
         int constant{};
         std::from_chars(token->m_data.data(),
@@ -800,6 +850,40 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
     }
 
     if (const auto token = token_stream.try_consume(TokenType::Identifier)) {
+        if (token_stream.consume_if(TokenType::OpenParen)) {
+            if (token_stream.consume_if(TokenType::CloseParen)) {
+                return std::make_unique<FunctionCallExpression>(
+                    token->m_data, std::vector<std::unique_ptr<Expression>>{});
+            }
+            std::vector<std::unique_ptr<Expression>> arguments;
+
+            auto first_arg = parse_assignment_expression(token_stream);
+            if (!first_arg) {
+                token_stream.restore(restore_state);
+                return std::unexpected("Failed to parse function call: " +
+                                       first_arg.error());
+            }
+            arguments.push_back(std::move(*first_arg));
+
+            while (token_stream.consume_if(TokenType::Comma)) {
+                auto arg = parse_assignment_expression(token_stream);
+                if (!arg) {
+                    token_stream.restore(restore_state);
+                    return std::unexpected("Failed to parse function call: " +
+                                           arg.error());
+                }
+                arguments.push_back(std::move(*arg));
+            }
+
+            if (!token_stream.consume_if(TokenType::CloseParen)) {
+                token_stream.restore(restore_state);
+                return std::unexpected(
+                    "Failed to parse function call: expected closing paren");
+            }
+
+            return std::make_unique<FunctionCallExpression>(
+                token->m_data, std::move(arguments));
+        }
         return std::make_unique<VariableRefExpression>(token->m_data);
     }
 
@@ -965,6 +1049,16 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
                        m_expr->to_string(indent + 2));
 }
 
+[[nodiscard]] std::string FunctionCallExpression::to_string(int indent) const {
+    std::string result =
+        fmt::format("{}FunctionCall: {}", get_indent(indent), m_func_name);
+    for (const auto& arg : m_arguments) {
+        result += "\n" + fmt::format("{}Argument:\n{}", get_indent(indent + 1),
+                                     arg->to_string(indent + 2));
+    }
+    return result;
+}
+
 [[nodiscard]] std::string IfStatement::to_string(int indent) const {
     std::string result = fmt::format("{}IfStatement\n", get_indent(indent));
     result += fmt::format("{}Condition:\n{}", get_indent(indent + 1),
@@ -1049,18 +1143,32 @@ std::expected<std::unique_ptr<Expression>, std::string> parse_factor(
     std::string result =
         fmt::format("{}Function: {}", get_indent(indent), m_name);
 
-    for (const auto& item : m_body->m_block_items) {
-        result += "\n" + item->to_string(indent + 1);
+    if (!m_params.empty()) {
+        result += " (";
+        for (size_t i = 0; i < m_params.size(); ++i) {
+            result += m_params[i];
+            if (i < m_params.size() - 1) {
+                result += ", ";
+            }
+        }
+        result += ")";
     }
 
+    if (m_body) {
+        for (const auto& item : m_body->m_block_items) {
+            result += "\n" + item->to_string(indent + 1);
+        }
+    }
     return result;
 }
 
 [[nodiscard]] std::string Program::to_string(int indent) const {
-    return fmt::format("{}Program\n{}", get_indent(indent),
-                       m_function->to_string(indent + 1));
+    std::string result = fmt::format("{}Program", get_indent(indent));
+    for (const auto& func : m_functions) {
+        result += "\n" + func->to_string(indent + 1);
+    }
+    return result;
 }
-
 // [[nodiscard]] std::expected<FactorV, std::string> parse_factor_v(
 //     std::vector<lexer::Token>::iterator& tokens) {
 //     using lexer::TokenType;

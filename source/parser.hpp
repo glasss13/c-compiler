@@ -37,6 +37,7 @@ enum class ExpressionType {
     CompoundAssignment,
     VariableRef,
     Ternary,
+    FunctionCall,
     Empty,  // handles cases like for (;;)
 };
 enum class UnaryOpType {
@@ -214,6 +215,19 @@ struct TernaryExpression : public Expression {
     [[nodiscard]] std::string to_string(int indent) const override;
 };
 
+struct FunctionCallExpression : public Expression {
+    std::string m_func_name;
+    std::vector<std::unique_ptr<Expression>> m_arguments;
+
+    FunctionCallExpression(std::string func_name,
+                           std::vector<std::unique_ptr<Expression>> arguments)
+        : Expression(ExpressionType ::FunctionCall),
+          m_func_name(std::move(func_name)),
+          m_arguments(std::move(arguments)) {}
+
+    [[nodiscard]] std::string to_string(int indent) const override;
+};
+
 struct EmptyExpression : public Expression {
     explicit EmptyExpression() : Expression(ExpressionType::Empty) {}
 
@@ -339,19 +353,23 @@ struct ContinueStatement : public Statement {
 
 struct Function : public AstNode {
     std::string m_name;
+    std::vector<std::string> m_params;
     std::unique_ptr<CompoundStatement> m_body;
 
-    Function(std::string name, std::unique_ptr<CompoundStatement> body)
-        : m_name(std::move(name)), m_body(std::move(body)) {}
+    Function(std::string name, std::vector<std::string> params,
+             std::unique_ptr<CompoundStatement> body)
+        : m_name(std::move(name)),
+          m_params(std::move(params)),
+          m_body(std::move(body)) {}
 
     [[nodiscard]] std::string to_string(int indent) const override;
 };
 
 struct Program : public AstNode {
-    std::unique_ptr<Function> m_function;
+    std::vector<std::unique_ptr<Function>> m_functions;
 
-    explicit Program(std::unique_ptr<Function> function)
-        : m_function(std::move(function)) {}
+    explicit Program(std::vector<std::unique_ptr<Function>> functions)
+        : m_functions(std::move(functions)) {}
 
     [[nodiscard]] std::string to_string(int indent) const override;
 };

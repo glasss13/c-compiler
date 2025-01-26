@@ -158,6 +158,13 @@ public:
         const parser::UnaryOpExpression& unary_op) override;
 
 private:
+    struct Function {
+        std::string m_name;
+        size_t arity;
+        bool m_defined;
+    };
+
+    std::unordered_map<std::string, Function> m_functions;
     std::shared_ptr<const Scope> m_scope{Scope::global_scope()};
 
     void enter_scope(std::shared_ptr<const Scope> scope) {

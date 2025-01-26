@@ -14,11 +14,44 @@ namespace codegen {
 
 [[nodiscard]] std::string AArch64Generator::codegen_program(
     const parser::Program& program) {
-    return codegen_function(*program.m_function);
+    std::string out;
+    for (const auto& func : program.m_functions) {
+        out += codegen_function(*func);
+        out += '\n';
+    }
+
+    return out;
 }
 
 [[nodiscard]] std::string AArch64Generator::codegen_function(
     const parser::Function& function) {
+    // function declaration
+    if (!function.m_body) {
+        m_functions.emplace(
+            function.m_name,
+            Function{function.m_name, function.m_params.size(), false});
+        return "";
+    }
+
+    auto it = m_functions.find(function.m_name);
+    if (it != m_functions.end()) {
+        if (it->second.m_defined) {
+            std::cout << fmt::format("function {} already defined",
+                                     function.m_name);
+            std::terminate();
+        }
+        if (it->second.arity != function.m_params.size()) {
+            std::cout << fmt::format("function {} has mismatched param count",
+                                     function.m_name);
+            std::terminate();
+        }
+        it->second.m_defined = true;
+    } else {
+        m_functions.emplace(
+            function.m_name,
+            Function{function.m_name, function.m_params.size(), true});
+    }
+
     const bool has_return = std::ranges::any_of(
         function.m_body->m_block_items, [](const auto& item) {
             if (item->m_item_type != parser::BlockItemType::Statement) {
@@ -30,15 +63,38 @@ namespace codegen {
             return statement.m_statement_type == parser::StatementType::Return;
         });
 
-    std::string body_asm = codegen_block(*function.m_body);
-
     auto out = fmt::format(
         ".globl _{}\n"
         "_{}:\n"
         "stp x29, x30, [sp, #-16]!\n"
-        "mov x29, sp\n"
-        "{}",
-        function.m_name, function.m_name, body_asm);
+        "mov x29, sp\n",
+        function.m_name, function.m_name);
+
+    std::string param_load_asm;
+    auto scope = m_scope->create_child_scope();
+
+    for (size_t i = 0; i < function.m_params.size(); ++i) {
+        param_load_asm += fmt::format(
+            "sub sp, sp, #16\n"
+            "str w{}, [x29, #{}]\n",
+            i, scope->base_offset());
+        scope = scope->add_var(function.m_params[i]);
+    }
+    out += param_load_asm;
+
+    enter_scope(scope);
+    const std::string body_asm = codegen_block(*function.m_body);
+    exit_scope();
+
+    out += body_asm;
+
+    // auto out = fmt::format(
+    //     ".globl _{}\n"
+    //     "_{}:\n"
+    //     "stp x29, x30, [sp, #-16]!\n"
+    //     "mov x29, sp\n"
+    //     "{}",
+    //     function.m_name, function.m_name, body_asm);
 
     // C standard says that main function should return 0 even if no
     // return statement is present.
@@ -369,6 +425,54 @@ namespace codegen {
                 condition_asm, else_label, then_asm, end_label, else_label,
                 else_asm, end_label);
         }
+        case parser::ExpressionType::FunctionCall: {
+            const auto& call_expr =
+                dynamic_cast<const parser::FunctionCallExpression&>(expr);
+
+            auto it = m_functions.find(call_expr.m_func_name);
+            if (it == m_functions.end()) {
+                std::cout << fmt::format("function {} not declared",
+                                         call_expr.m_func_name);
+                std::terminate();
+            }
+            if (it->second.arity != call_expr.m_arguments.size()) {
+                std::cout << fmt::format(
+                    "function {} expected {} arguments, got {}",
+                    call_expr.m_func_name, it->second.arity,
+                    call_expr.m_arguments.size());
+                std::terminate();
+            }
+
+            // TODO handle moving arguments to stack
+            if (call_expr.m_arguments.size() > 8) {
+                std::cout << "More than 8 arguments not supported rn\n";
+                std::terminate();
+            }
+
+            std::string out_asm;
+
+            std::cout << "call expr size: " << call_expr.m_arguments.size();
+
+            for (const auto& arg_expr : call_expr.m_arguments) {
+                std::cout << "genning arg expr\n";
+                const auto arg_asm = codegen_expression(*arg_expr);
+                out_asm += fmt::format(
+                    "{}\n"  // arg_asm
+                    "str w0, [sp, #-16]!\n",
+                    arg_asm);
+            }
+
+            for (int i = static_cast<int>(call_expr.m_arguments.size()) - 1;
+                 i >= 0; --i) {
+                std::cout << "pushing to stack\n";
+                out_asm += fmt::format("ldr w{}, [sp], #16\n", i);
+            }
+
+            out_asm += fmt::format("bl _{}", call_expr.m_func_name);
+
+            return out_asm;
+        }
+
         case parser::ExpressionType::Empty: {
             return "";
         }
