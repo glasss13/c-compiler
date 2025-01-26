@@ -588,4 +588,42 @@ TEST_CASE("For loop with break", "[integration]") {
     const auto status_code = compile_and_run(*assembly, true);
     REQUIRE(status_code == 3);
 }
+
+TEST_CASE("Function call - multiple params", "[integration]") {
+    const std::string program = R"#(
+    int add_stuff(int a, int b, int c) {
+        return a + b + c;
+    }
+
+    int main() {
+        return add_stuff(27, 3, 4);
+    }
+
+)#";
+
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 34);
+}
+TEST_CASE("Recursion - fibonacci", "[integration]") {
+    const std::string program = R"#(
+    int fib(int n) {
+        if (n == 0 || n == 1) {
+            return n;
+        } else {
+            return fib(n - 1) + fib(n - 2);
+        }
+    }
+
+    int main() {
+        return fib(10);
+    }
+)#";
+    const auto assembly = c_compiler::compile_code(program);
+    REQUIRE(assembly);
+    const auto status_code = compile_and_run(*assembly, true);
+    REQUIRE(status_code == 55);
+}
+
 // NOLINTEND
